@@ -1,0 +1,54 @@
+"use client";
+
+import { Star } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+interface StarRatingInputProps {
+    value: number;
+    onChange: (value: number) => void;
+    max?: number;
+    size?: number;
+    label?: string;
+}
+
+export function StarRatingInput({
+    value,
+    onChange,
+    max = 5,
+    size = 24,
+    label
+}: StarRatingInputProps) {
+    return (
+        <div>
+            {label && (
+                <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {label}
+                </span>
+            )}
+            <div className="flex items-center gap-1">
+                {Array.from({ length: max }, (_, i) => i + 1).map((star) => (
+                    <button
+                        key={star}
+                        type="button"
+                        onClick={() => onChange(star)}
+                        className="group/star rounded-full p-0.5 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        aria-label={`${star} estrela${star > 1 ? "s" : ""}`}
+                    >
+                        <Star
+                            size={size}
+                            className={cn(
+                                "transition-colors",
+                                star <= value
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "fill-gray-200 text-gray-200 group-hover/star:fill-amber-200 group-hover/star:text-amber-200 dark:fill-gray-700 dark:text-gray-700"
+                            )}
+                        />
+                    </button>
+                ))}
+                <span className="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {value > 0 ? `${value}/${max}` : "Avaliar"}
+                </span>
+            </div>
+        </div>
+    );
+}
