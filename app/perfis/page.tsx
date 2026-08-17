@@ -2,13 +2,16 @@
 
 import { ArrowRight, Film, Star, Users } from "lucide-react";
 import Link from "next/link";
-import { users } from "@/lib/mockData";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { StarRating } from "@/components/ui/StarRating";
 
 export default function ProfilesPage() {
-    const { movies, reviews } = useReviews();
+    const { movies, reviews, users } = useReviews();
+
+    // Enquanto o onboarding não estiver completo, o SetupRedirect cuida do redirecionamento
+    if (users.length !== 2) return null;
+
     const [user1, user2] = users;
     const pairs = [
         { user: user1, ratingKey: "ratingUser1" as const },

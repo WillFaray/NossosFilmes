@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import { getInitials } from "@/lib/utils";
 
 interface AvatarProps {
@@ -17,22 +17,23 @@ const sizeClasses = {
 };
 
 export function Avatar({ src, name, size = "md", className = "" }: AvatarProps) {
+    const [imgError, setImgError] = useState(false);
+
     return (
-        <div className={`relative shrink-0 overflow-hidden rounded-full ring-2 ring-white dark:ring-gray-800 shadow-sm ${sizeClasses[size]} ${className}`}>
-            <span className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 font-semibold text-white ${sizeClasses[size]}`}>
+        <div className={`relative shrink-0 overflow-hidden rounded-full ring-2 ring-white shadow-sm dark:ring-gray-800 ${sizeClasses[size]} ${className}`}>
+            {/* Fallback: iniciais atrás da imagem */}
+            <span className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent-500 to-accent-600 font-semibold text-white ${sizeClasses[size]}`}>
                 {getInitials(name)}
             </span>
-            <Image
-                src={src}
-                alt={name}
-                fill
-                sizes="(max-width: 64px) 100vw"
-                className="object-cover"
-                onError={(e) => {
-                    // Fallback: oculta a imagem e exibe as iniciais
-                    (e.target as HTMLImageElement).style.display = "none";
-                }}
-            />
+            {!imgError && src && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={src}
+                    alt={name}
+                    className="relative h-full w-full object-cover"
+                    onError={() => setImgError(true)}
+                />
+            )}
         </div>
     );
 }

@@ -1,0 +1,43 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "sqlite"
+}
+
+model User {
+    id            String         @id @default(cuid())
+    name          String
+    avatarUrl     String
+    reviews       MovieReview[]  @relation("RecommendedReviews")
+    watchlist     WatchlistItem[]
+}
+
+model WatchlistItem {
+    id         String @id @default(cuid())
+    tmdbId     String @unique
+    title      String
+    posterPath String
+    genres     String
+    createdAt  DateTime @default(now())
+    addedById  String
+    addedBy    User   @relation(fields: [addedById], references: [id])
+}
+
+model MovieReview {
+    id             String  @id @default(cuid())
+    tmdbId         String
+    title          String
+    posterPath     String
+    dateWatched    String
+    ratingUser1    Int
+    ratingUser2    Int
+    textReview     String
+    genres         String
+    recommendedById String
+    recommendedBy  User   @relation("RecommendedReviews", fields: [recommendedById], references: [id])
+
+    @@index([recommendedById])
+    @@index([dateWatched])
+}

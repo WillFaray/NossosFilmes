@@ -39,8 +39,8 @@ export function StarRatingInput({
                             className={cn(
                                 "transition-colors",
                                 star <= value
-                                    ? "fill-amber-400 text-amber-400"
-                                    : "fill-gray-200 text-gray-200 group-hover/star:fill-amber-200 group-hover/star:text-amber-200 dark:fill-gray-700 dark:text-gray-700"
+                                    ? "fill-gold-400 text-gold-400 drop-shadow-[0_0_6px_rgba(240,180,50,0.5)]"
+                                    : "fill-gray-200 text-gray-200 group-hover/star:fill-gold-200 group-hover/star:text-gold-200 dark:fill-white/10 dark:text-white/10 dark:group-hover/star:fill-gold-300/40 dark:group-hover/star:text-gold-300/40"
                             )}
                         />
                     </button>

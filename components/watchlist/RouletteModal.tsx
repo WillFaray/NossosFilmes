@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Dices, RotateCcw, Sparkles } from "lucide-react";
 import Image from "next/image";
 import type { Movie } from "@/types";
@@ -48,31 +49,24 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
         // Define o filme final (aleatório) e calcula quantas paradas para alcançá-lo
         const finalIndex = Math.floor(Math.random() * movies.length);
 
-        // Total de passos: entre 2.5 e 3.5 voltas completas para dar sensação de duração
-        const totalSteps = movies.length * 3 + ((finalIndex - movies.length) % movies.length + movies.length) % movies.length;
-        // O último passo deve cair exatamente no finalIndex
-        const steps = Math.max(totalSteps, movies.length * 2 + finalIndex + 1);
+        // Total de passos para dar sensação de duração (2 a 3 voltas completas)
+        const steps = movies.length * 2 + finalIndex + 1;
 
         const durations: number[] = [];
-        let elapsed = 0;
         // Easing: começa rápido e desacelera gradativamente (de 60ms até 450ms)
         for (let i = 0; i < steps; i++) {
             const progress = i / steps;
-            const duration = 60 + progress * progress * 390; // quadrático: desacelera
-            durations.push(duration);
-            elapsed += duration;
+            durations.push(60 + progress * progress * 390);
         }
 
         let stepCount = 0;
 
         const tick = () => {
-            // Avança um passo e ajusta o índice
             const newIndex = (stepCount + 1) % movies.length;
             setCurrentIndex(newIndex);
             stepCount += 1;
 
             if (stepCount >= steps) {
-                // Garante que o índice final seja exatamente o sorteado
                 setCurrentIndex(finalIndex);
                 setResult(movies[finalIndex]);
                 setRolling(false);
@@ -95,9 +89,13 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
             <div className="p-6 sm:p-8">
                 {/* Cabeçalho */}
                 <div className="text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
+                    <motion.div
+                        animate={rolling ? { rotate: 360, scale: [1, 1.15, 1] } : { rotate: 0, scale: 1 }}
+                        transition={rolling ? { repeat: Infinity, duration: 0.8, ease: "linear" } : { duration: 0.4 }}
+                        className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-lg shadow-accent-500/40"
+                    >
                         <Dices size={24} />
-                    </div>
+                    </motion.div>
                     <h3 className="mt-3 text-lg font-bold text-gray-900 dark:text-white">
                         Roleta de Filmes
                     </h3>
@@ -114,87 +112,113 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                     <>
                         {/* Resultado / Prévia */}
                         <div className="mt-6">
-                            {result ? (
-                                <div className="flex flex-col items-center gap-5 animate-scaleIn sm:flex-row sm:items-start">
-                                    {/* Poster */}
-                                    <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-lg ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                                        {result.poster_path ? (
-                                            <Image
-                                                src={getPosterUrl(result.poster_path, "w342")}
-                                                alt={result.title}
-                                                fill
-                                                sizes="160px"
-                                                className="object-cover"
-                                            />
-                                        ) : (
-                                            <span className="flex h-full items-center justify-center p-2 text-center text-xs text-gray-400">
-                                                Sem capa
-                                            </span>
-                                        )}
-                                    </div>
-                                    {/* Info */}
-                                    <div className="min-w-0 text-center sm:text-left">
-                                        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
-                                            <Sparkles size={12} />
-                                            Hoje é dia de ver!
-                                        </div>
-                                        <h4 className="mt-2 text-lg font-bold text-gray-900 dark:text-white">
-                                            {result.title}
-                                        </h4>
-                                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                            {result.release_date ? formatDate(result.release_date) : "Ano desconhecido"}
-                                            {result.genres.length > 0 && ` · ${result.genres.join(", ")}`}
-                                        </p>
-                                        {result.overview && (
-                                            <p className="mt-3 text-sm leading-relaxed text-gray-600 line-clamp-4 dark:text-gray-300">
-                                                {result.overview}
+                            <AnimatePresence mode="wait">
+                                {result ? (
+                                    <motion.div
+                                        key="result"
+                                        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        transition={{ type: "spring", duration: 0.6, bounce: 0.3 }}
+                                        className="flex flex-col items-center gap-5 rounded-3xl border border-gold-400/30 bg-gold-400/5 p-4 shadow-[0_0_40px_-8px_rgba(240,180,50,0.3)] sm:flex-row sm:items-start"
+                                    >
+                                        {/* Poster */}
+                                        <motion.div
+                                            initial={{ rotateY: 90, opacity: 0 }}
+                                            animate={{ rotateY: 0, opacity: 1 }}
+                                            transition={{ duration: 0.6, delay: 0.2 }}
+                                            className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-poster-lg ring-1 ring-gold-400/40 dark:bg-gray-800"
+                                        >
+                                            {result.poster_path ? (
+                                                <Image
+                                                    src={getPosterUrl(result.poster_path, "w342")}
+                                                    alt={result.title}
+                                                    fill
+                                                    sizes="160px"
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <span className="flex h-full items-center justify-center p-2 text-center text-xs text-gray-400">
+                                                    Sem capa
+                                                </span>
+                                            )}
+                                        </motion.div>
+                                        {/* Info */}
+                                        <div className="min-w-0 text-center sm:text-left">
+                                            <motion.div
+                                                initial={{ scale: 0 }}
+                                                animate={{ scale: 1 }}
+                                                transition={{ type: "spring", delay: 0.35, duration: 0.5 }}
+                                                className="inline-flex items-center gap-1.5 rounded-full bg-gold-400/15 px-3 py-1 text-xs font-semibold text-gold-500 dark:text-gold-300"
+                                            >
+                                                <Sparkles size={12} />
+                                                Hoje é dia de ver!
+                                            </motion.div>
+                                            <h4 className="mt-2 text-lg font-bold text-gray-900 dark:text-white">
+                                                {result.title}
+                                            </h4>
+                                            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                {result.release_date ? formatDate(result.release_date) : "Ano desconhecido"}
+                                                {result.genres.length > 0 && ` · ${result.genres.join(", ")}`}
                                             </p>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-                                    {/* Poster em rotação */}
-                                    <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-lg ring-1 ring-gray-200 ring-2 dark:bg-gray-800 dark:ring-gray-700">
-                                        {previewMovie?.poster_path ? (
-                                            <Image
-                                                src={getPosterUrl(previewMovie.poster_path, "w342")}
-                                                alt={previewMovie?.title ?? ""}
-                                                fill
-                                                sizes="160px"
-                                                className="object-cover"
-                                            />
-                                        ) : (
-                                            <span className="flex h-full items-center justify-center p-2 text-center text-xs text-gray-400">
-                                                Sem capa
+                                            {result.overview && (
+                                                <p className="mt-3 text-sm leading-relaxed text-gray-600 line-clamp-4 dark:text-gray-300">
+                                                    {result.overview}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="preview"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="flex flex-col items-center gap-5 sm:flex-row sm:items-start"
+                                    >
+                                        {/* Poster em rotação */}
+                                        <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-poster ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                                            {previewMovie?.poster_path ? (
+                                                <Image
+                                                    src={getPosterUrl(previewMovie.poster_path, "w342")}
+                                                    alt={previewMovie?.title ?? ""}
+                                                    fill
+                                                    sizes="160px"
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <span className="flex h-full items-center justify-center p-2 text-center text-xs text-gray-400">
+                                                    Sem capa
+                                                </span>
+                                            )}
+                                            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/70 to-transparent px-3 pb-2 pt-6 text-center text-xs font-semibold text-white">
+                                                {previewMovie?.title}
                                             </span>
-                                        )}
-                                        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/70 to-transparent px-3 pb-2 pt-6 text-center text-xs font-semibold text-white">
-                                            {previewMovie?.title}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-1 flex-col items-center justify-center text-center sm:items-start sm:text-left">
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {rolling
-                                                ? "Girando a roleta..."
-                                                : "Gire a roleta para sortear um filme da sua lista!"}
-                                        </p>
-                                        <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                                            {rolling ? "" : `${movies.length} ${movies.length === 1 ? "filme" : "filmes"}`}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
+                                        </div>
+                                        <div className="flex flex-1 flex-col items-center justify-center text-center sm:items-start sm:text-left">
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                {rolling
+                                                    ? "Girando a roleta..."
+                                                    : "Gire a roleta para sortear um filme da sua lista!"}
+                                            </p>
+                                            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+                                                {rolling ? "" : `${movies.length} ${movies.length === 1 ? "filme" : "filmes"}`}
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
 
                         {/* Vídeo da roleta (prévia rápida dos posters) */}
                         {rolling && (
-                            <div className="mt-4 flex gap-2 overflow-hidden">
+                            <div className="mt-4 flex justify-center gap-2 overflow-hidden">
                                 {movies.slice(0, 6).map((movie, i) => (
-                                    <div
+                                    <motion.div
                                         key={movie.id}
-                                        className={`relative aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 transition-all duration-100 ${i === currentIndex % 6 ? "scale-110 ring-2 ring-indigo-400" : "opacity-40"
-                                            }`}
+                                        animate={i === currentIndex % 6 ? { scale: 1.15, opacity: 1 } : { scale: 0.85, opacity: 0.4 }}
+                                        transition={{ duration: 0.1 }}
+                                        className="relative aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
                                     >
                                         {movie.poster_path ? (
                                             <Image
@@ -209,7 +233,7 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                                                 Sem capa
                                             </span>
                                         )}
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
                         )}
@@ -217,26 +241,30 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                         {/* Ações */}
                         <div className="mt-6 flex justify-center gap-3">
                             {!result && (
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.97 }}
                                     onClick={spin}
                                     disabled={rolling}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:from-indigo-500 hover:to-purple-500 hover:shadow-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <Dices size={16} className={rolling ? "animate-spin" : ""} />
                                     {rolling ? "Girando..." : "Girar roleta"}
-                                </button>
+                                </motion.button>
                             )}
                             {result && (
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.97 }}
                                     onClick={() => {
                                         setResult(null);
                                         setCurrentIndex(0);
                                     }}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-6 py-2.5 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-gold-400/10 px-6 py-2.5 text-sm font-semibold text-gold-600 transition-colors hover:bg-gold-400/20 dark:text-gold-300"
                                 >
                                     <RotateCcw size={16} />
                                     Girar novamente
-                                </button>
+                                </motion.button>
                             )}
                         </div>
                     </>

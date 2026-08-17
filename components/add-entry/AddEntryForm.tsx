@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { Movie } from "@/types";
-import { users } from "@/lib/mockData";
 import { getPosterUrl } from "@/lib/utils";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { Avatar } from "@/components/ui/Avatar";
@@ -14,16 +13,20 @@ import { cn } from "@/lib/cn";
 import Image from "next/image";
 
 export function AddEntryForm() {
-    const { addEntry } = useReviews();
+    const { addEntry, users } = useReviews();
 
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [dateWatched, setDateWatched] = useState("");
     const [ratingUser1, setRatingUser1] = useState(0);
     const [ratingUser2, setRatingUser2] = useState(0);
     const [textReview, setTextReview] = useState("");
-    const [recommendedBy, setRecommendedBy] = useState(users[0].id);
+    // users[0] é seguro: o SetupRedirect só renderiza esta página com 2 usuários
+    const [recommendedBy, setRecommendedBy] = useState(users[0]?.id ?? "");
     const [toastOpen, setToastOpen] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
+
+    // Enquanto o onboarding não estiver completo, o SetupRedirect cuida do redirecionamento
+    if (users.length !== 2) return null;
 
     const handleSelectMovie = (movie: Movie) => {
         setSelectedMovie(movie);

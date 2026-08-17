@@ -1,11 +1,10 @@
 "use client";
 
 import { notFound } from "next/navigation";
-import { ArrowLeft, Award, ChevronRight, Heart, Star, Target, TrendingDown } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight, Heart, Pencil, Star, Target, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { users } from "@/lib/mockData";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { StarRating } from "@/components/ui/StarRating";
@@ -14,15 +13,21 @@ import {
     ProfileExpansionModal,
     type ProfileExpansionType
 } from "@/components/profiles/ProfileExpansionModal";
+import { EditProfileModal } from "@/components/profiles/EditProfileModal";
 
 interface ProfilePageProps {
     params: { id: string };
 }
 
 export default function ProfilePage({ params }: ProfilePageProps) {
-    const { movies, reviews } = useReviews();
-    const [user1, user2] = users;
+    const { movies, reviews, users, updateUser } = useReviews();
     const [expansion, setExpansion] = useState<ProfileExpansionType | null>(null);
+    const [editOpen, setEditOpen] = useState(false);
+
+    // Enquanto o onboarding não estiver completo, o SetupRedirect cuida do redirecionamento
+    if (users.length !== 2) return null;
+
+    const [user1, user2] = users;
 
     const user = users.find((u) => u.id === params.id);
     if (!user) notFound();
@@ -156,11 +161,20 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                         {ratedEntries.length} filmes assistidos
                     </p>
                 </div>
-                <div className="flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-2 dark:bg-indigo-500/10">
-                    <Star size={14} className="text-indigo-500" />
-                    <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                        Nota média: {avgRating.toFixed(1)}
-                    </span>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                    <div className="flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-2 dark:bg-indigo-500/10">
+                        <Star size={14} className="text-indigo-500" />
+                        <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                            Nota média: {avgRating.toFixed(1)}
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => setEditOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                        <Pencil size={14} />
+                        Editar perfil
+                    </button>
                 </div>
             </div>
 
@@ -329,6 +343,16 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                 items={expansion ? expansionData[expansion] : []}
                 userName={user.name}
                 otherUser={otherUser}
+            />
+
+            {/* Modal de edição de perfil */}
+            <EditProfileModal
+                open={editOpen}
+                onClose={() => setEditOpen(false)}
+                user={user}
+                onUpdated={(updated) => {
+                    updateUser(updated);
+                }}
             />
         </div>
     );

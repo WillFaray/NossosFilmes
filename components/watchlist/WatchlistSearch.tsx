@@ -17,13 +17,17 @@ export function WatchlistSearch() {
     const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const addedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const requestIdRef = useRef(0);
 
     const watchlistIds = new Set(watchlist.map((m) => m.id));
 
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
-        if (query.trim().length < 2) {
+        const trimmedQuery = query.trim();
+        const currentRequestId = ++requestIdRef.current;
+
+        if (trimmedQuery.length < 2) {
             setResults([]);
             setOpen(false);
             setError(null);
@@ -36,16 +40,22 @@ export function WatchlistSearch() {
 
         debounceRef.current = setTimeout(async () => {
             try {
-                const res = await fetch(`/api/movies/search?q=${encodeURIComponent(query.trim())}`);
+                const res = await fetch(`/api/movies/search?q=${encodeURIComponent(trimmedQuery)}`);
                 const data = await res.json();
+
+                if (currentRequestId !== requestIdRef.current) return;
                 if (!res.ok) throw new Error(data.error ?? "Erro na busca");
+
                 setResults(data.results ?? []);
                 setOpen(true);
             } catch {
+                if (currentRequestId !== requestIdRef.current) return;
                 setError("Não foi possível buscar filmes. Tente novamente.");
                 setResults([]);
             } finally {
-                setLoading(false);
+                if (currentRequestId === requestIdRef.current) {
+                    setLoading(false);
+                }
             }
         }, 400);
 
@@ -86,7 +96,9 @@ export function WatchlistSearch() {
                     className="w-full rounded-xl border-0 bg-white py-2.5 pl-10 pr-10 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
                 />
                 {loading && (
-                    <Loader2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                        <Loader2 size={18} className="animate-spin text-gray-400" />
+                    </div>
                 )}
             </div>
 

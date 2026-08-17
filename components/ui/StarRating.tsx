@@ -16,8 +16,8 @@ export function StarRating({ rating, max = 5, size = 14, className = "" }: StarR
                     size={size}
                     className={
                         star <= rating
-                            ? "fill-amber-400 text-amber-400"
-                            : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
+                            ? "fill-gold-400 text-gold-400 drop-shadow-[0_0_4px_rgba(240,180,50,0.4)]"
+                            : "fill-gray-200 text-gray-200 dark:fill-white/10 dark:text-white/10"
                     }
                 />
             ))}
