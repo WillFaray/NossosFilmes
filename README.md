@@ -16,7 +16,7 @@ Um diário de filmes compartilhado para **duas pessoas**, com visual intuitivo, 
 
 <img width="1903" height="919" alt="Tela principal do app" src="https://github.com/user-attachments/assets/c0456b49-04ab-473b-aff1-a8456376335b" />
 
-<img width="1920" height="887" alt="Roleta de filmes na lista de interesses" src="https://github.com/user-attachments/assets/0ddfe984-f7f6-47d8-9c5c-2ddda9faec8b" />
+<img width="1920" height="887" alt="Roleta de filmes na lista de interesses" src="https://github.com/user-attachments/assets/0d353f54-1b48-4350-b61b-a08bb9ebf568" />
 
 ---
 
