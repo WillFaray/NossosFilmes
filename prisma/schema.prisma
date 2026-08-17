@@ -31,8 +31,8 @@ model MovieReview {
     title          String
     posterPath     String
     dateWatched    String
-    ratingUser1    Int
-    ratingUser2    Int
+    ratingUser1    Float
+    ratingUser2    Float
     textReview     String
     genres         String
     recommendedById String

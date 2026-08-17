@@ -133,7 +133,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             <div className="mt-1.5 flex items-center gap-1">
                 <StarRating rating={item.rating} size={11} />
                 <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
-                    {item.rating}
+                    {item.rating.toFixed(1).replace(".", ",")}
                 </span>
             </div>
         </div>
@@ -290,7 +290,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                                             />
                                             <StarRating rating={review[otherKey]} size={11} />
                                             <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
-                                                {review[otherKey]}
+                                                {review[otherKey].toFixed(1).replace(".", ",")}
                                             </span>
                                         </div>
                                     </div>

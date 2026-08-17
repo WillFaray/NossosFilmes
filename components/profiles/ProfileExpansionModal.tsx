@@ -104,7 +104,7 @@ export function ProfileExpansionModal({
                                 <div className="mt-1 flex items-center gap-1.5">
                                     <StarRating rating={rating} size={12} />
                                     <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
-                                        {rating}
+                                        {rating.toFixed(1).replace(".", ",")}
                                     </span>
                                 </div>
                                 {type === "recommendations" && otherRating !== undefined && (

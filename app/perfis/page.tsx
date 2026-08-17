@@ -92,7 +92,7 @@ export default function ProfilesPage() {
                                         <span className="text-xl font-bold text-gray-900 dark:text-white">
                                             {avgRating.toFixed(1)}
                                         </span>
-                                        <StarRating rating={Math.round(avgRating)} size={14} />
+                                        <StarRating rating={Math.round(avgRating * 2) / 2} size={14} />
                                     </div>
                                 </div>
                             </div>
