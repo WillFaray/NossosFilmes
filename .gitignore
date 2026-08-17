@@ -13,6 +13,9 @@
 .env.production.local
 *.env
 
+/dev.db
+/dev.db-journal
+*.db
 prisma/*.db
 prisma/*.db-journal
 /prisma/dev.db
