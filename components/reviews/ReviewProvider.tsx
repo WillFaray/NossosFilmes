@@ -3,7 +3,14 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { Movie, Review, User } from "@/types";
 import type { DbMovieReview, DbUser, DbWatchlistItem } from "@/lib/actions";
-import { addMovieReview, addToWatchlist } from "@/lib/actions";
+import {
+    addMovieReview,
+    addToWatchlist,
+    deleteMovieReview,
+    removeFromWatchlist,
+    updateMovieReview
+} from "@/lib/actions";
+
 import { toAppReview, toAppUser, toMovieFromReview } from "@/lib/adapters";
 
 interface ReviewProviderValue {
@@ -20,8 +27,19 @@ interface ReviewProviderValue {
         textReview: string;
         recommendedBy: string;
     }) => void;
+    updateEntry: (id: string, entry: {
+        movie: Movie;
+        dateWatched: string;
+        ratingUser1: number;
+        ratingUser2: number;
+        textReview: string;
+        recommendedBy: string;
+    }) => void;
+    deleteEntry: (id: string) => void;
     addToWatchlist: (movie: Movie) => void;
+    removeFromWatchlist: (id: string) => void;
 }
+
 
 interface ReviewProviderProps {
     children: React.ReactNode;
@@ -109,6 +127,48 @@ export function ReviewProvider({
         })();
     }, []);
 
+    const updateEntryHandler = useCallback((id: string, entry: {
+        movie: Movie;
+        dateWatched: string;
+        ratingUser1: number;
+        ratingUser2: number;
+        textReview: string;
+        recommendedBy: string;
+    }) => {
+        void (async () => {
+            const dbReview = await updateMovieReview(id, {
+                tmdbId: entry.movie.id,
+                title: entry.movie.title,
+                posterPath: entry.movie.poster_path,
+                dateWatched: entry.dateWatched,
+                ratingUser1: entry.ratingUser1,
+                ratingUser2: entry.ratingUser2,
+                textReview: entry.textReview,
+                genres: entry.movie.genres,
+                recommendedById: entry.recommendedBy
+            });
+
+            setReviews((prev) =>
+                prev.map((r) => (r.id === id ? toAppReview(dbReview) : r))
+            );
+        })();
+    }, []);
+
+    const deleteEntryHandler = useCallback((id: string) => {
+        void (async () => {
+            await deleteMovieReview(id);
+            setReviews((prev) => prev.filter((r) => r.id !== id));
+        })();
+    }, []);
+
+    const removeFromWatchlistHandler = useCallback((id: string) => {
+        void (async () => {
+            await removeFromWatchlist(id);
+            setWatchlist((prev) => prev.filter((m) => m.id !== id));
+        })();
+    }, []);
+
+
     return (
         <ReviewContext.Provider
             value={{
@@ -118,13 +178,17 @@ export function ReviewProvider({
                 watchlist,
                 updateUser: updateUserHandler,
                 addEntry,
-                addToWatchlist: addToWatchlistHandler
+                updateEntry: updateEntryHandler,
+                deleteEntry: deleteEntryHandler,
+                addToWatchlist: addToWatchlistHandler,
+                removeFromWatchlist: removeFromWatchlistHandler
             }}
         >
             {children}
         </ReviewContext.Provider>
     );
 }
+
 
 export function useReviews(): ReviewProviderValue {
     const ctx = useContext(ReviewContext);

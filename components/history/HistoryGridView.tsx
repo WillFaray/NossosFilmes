@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
+import { useReviews } from "@/components/reviews/ReviewProvider";
 import { ReviewDetailModal } from "./ReviewDetailModal";
 
 interface HistoryGridViewProps {
@@ -17,7 +18,9 @@ interface HistoryGridViewProps {
 }
 
 export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps) {
+    const { users, updateEntry, deleteEntry } = useReviews();
     const [selectedEntry, setSelectedEntry] = useState<HistoryGridViewProps["entries"][number] | null>(null);
+
 
     return (
         <>
@@ -58,7 +61,11 @@ export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps)
                 entry={selectedEntry}
                 user1={user1}
                 user2={user2}
+                users={users}
+                onEdit={updateEntry}
+                onDelete={deleteEntry}
             />
+
         </>
     );
 }

@@ -8,8 +8,9 @@ import { RouletteModal } from "@/components/watchlist/RouletteModal";
 import { WatchlistSearch } from "@/components/watchlist/WatchlistSearch";
 
 export default function WatchlistPage() {
-    const { watchlist } = useReviews();
+    const { watchlist, removeFromWatchlist } = useReviews();
     const [rouletteOpen, setRouletteOpen] = useState(false);
+
 
     return (
         <div className="space-y-8">
@@ -45,8 +46,13 @@ export default function WatchlistPage() {
             {watchlist.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
                     {watchlist.map((movie) => (
-                        <MovieCard key={movie.id} movie={movie} />
+                        <MovieCard
+                            key={movie.id}
+                            movie={movie}
+                            onRemove={(m) => removeFromWatchlist(m.id)}
+                        />
                     ))}
+
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">

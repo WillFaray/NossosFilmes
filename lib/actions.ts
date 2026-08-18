@@ -190,6 +190,17 @@ export async function removeFromWatchlist(tmdbId: string): Promise<void> {
     revalidatePath("/");
 }
 
+/** Remove um filme da watchlist (pelo id do registro) */
+export async function deleteWatchlistItem(id: string): Promise<void> {
+    await prisma.watchlistItem.delete({
+        where: { id }
+    });
+
+    revalidatePath("/lista-de-interesse");
+    revalidatePath("/");
+}
+
+
 /** Busca todas as reviews, incluindo o indicador */
 export async function getReviews(): Promise<(DbMovieReview & { recommender: DbUser })[]> {
     const reviews = await prisma.movieReview.findMany({
@@ -238,3 +249,45 @@ export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieRe
 
     return serializeReview(review);
 }
+
+/** Atualiza um registro de filme assistido */
+export async function updateMovieReview(
+    id: string,
+    input: MovieReviewInput
+): Promise<DbMovieReview> {
+    const review = await prisma.movieReview.update({
+        where: { id },
+        data: {
+            tmdbId: input.tmdbId,
+            title: input.title,
+            posterPath: input.posterPath,
+            dateWatched: input.dateWatched,
+            ratingUser1: input.ratingUser1,
+            ratingUser2: input.ratingUser2,
+            textReview: input.textReview,
+            genres: JSON.stringify(input.genres),
+            recommendedById: input.recommendedById
+        }
+    });
+
+    revalidatePath("/");
+    revalidatePath("/lista-de-interesse");
+    revalidatePath("/perfis");
+    revalidatePath("/perfis/[id]");
+
+    return serializeReview(review);
+}
+
+/** Remove um registro de filme assistido */
+export async function deleteMovieReview(id: string): Promise<void> {
+    await prisma.movieReview.delete({
+        where: { id }
+    });
+
+    revalidatePath("/");
+    revalidatePath("/lista-de-interesse");
+    revalidatePath("/perfis");
+    revalidatePath("/perfis/[id]");
+}
+
+

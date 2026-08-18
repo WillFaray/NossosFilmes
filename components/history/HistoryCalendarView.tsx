@@ -5,7 +5,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
+import { useReviews } from "@/components/reviews/ReviewProvider";
 import { ReviewDetailModal } from "./ReviewDetailModal";
+
 
 interface HistoryCalendarViewProps {
     entries: {
@@ -25,10 +27,12 @@ interface DayEntry {
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarViewProps) {
+    const { users, updateEntry, deleteEntry } = useReviews();
     const today = useMemo(() => new Date(), []);
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
     const [selectedEntry, setSelectedEntry] = useState<HistoryCalendarViewProps["entries"][number] | null>(null);
+
 
     const monthName = new Date(viewYear, viewMonth, 1).toLocaleDateString("pt-BR", {
         month: "long",
@@ -184,7 +188,11 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                 entry={selectedEntry}
                 user1={user1}
                 user2={user2}
+                users={users}
+                onEdit={updateEntry}
+                onDelete={deleteEntry}
             />
+
         </div>
     );
 }

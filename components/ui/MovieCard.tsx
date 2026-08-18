@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { Trash2 } from "lucide-react";
 import type { Movie } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 
@@ -9,9 +10,10 @@ interface MovieCardProps {
     movie: Movie;
     className?: string;
     index?: number;
+    onRemove?: (movie: Movie) => void;
 }
 
-export function MovieCard({ movie, className = "", index = 0 }: MovieCardProps) {
+export function MovieCard({ movie, className = "", index = 0, onRemove }: MovieCardProps) {
     return (
         <motion.article
             initial={{ opacity: 0, y: 16 }}
@@ -36,7 +38,23 @@ export function MovieCard({ movie, className = "", index = 0 }: MovieCardProps) 
                 )}
                 {/* Brilho sutil no hover */}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                {/* Botão remover (opcional) */}
+                {onRemove && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRemove(movie);
+                        }}
+                        className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-red-600 group-hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                        aria-label={`Remover ${movie.title} da lista`}
+                        title="Remover da lista"
+                    >
+                        <Trash2 size={15} />
+                    </button>
+                )}
             </div>
+
             <div className="flex flex-1 flex-col gap-1 p-4">
                 <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
                     {movie.title}
