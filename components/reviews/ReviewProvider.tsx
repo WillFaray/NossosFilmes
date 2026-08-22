@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Movie, Review, User } from "@/types";
 import type { DbMovieReview, DbUser, DbWatchlistItem } from "@/lib/actions";
 import {
@@ -78,6 +78,34 @@ export function ReviewProvider({
 
     // Mensagem de erro de persistência exibida via Toast
     const [persistError, setPersistError] = useState<string | null>(null);
+
+    // Sincroniza o estado quando os dados server-side mudam
+    // (ex.: após uma importação seguida de router.refresh())
+    useEffect(() => {
+        setUsers(initialUsers.map(toAppUser));
+    }, [initialUsers]);
+
+    useEffect(() => {
+        setReviews(initialReviews.map(toAppReview));
+        const map = new Map<string, Movie>();
+        initialReviews.forEach((review) => {
+            const movie = toMovieFromReview(review);
+            map.set(movie.id, movie);
+        });
+        setMovieData(map);
+    }, [initialReviews]);
+
+    useEffect(() => {
+        setWatchlist(
+            initialWatchlist.map((item) => ({
+                id: item.tmdbId,
+                title: item.title,
+                poster_path: item.posterPath,
+                release_date: "",
+                genres: item.genres
+            }))
+        );
+    }, [initialWatchlist]);
 
     const reportError = useCallback((message: string) => {
         setPersistError(message);

@@ -20,7 +20,7 @@ Um diário de filmes compartilhado para **duas pessoas**, com visual intuitivo, 
 
 ---
 
-## 🛠️ Tecnologias
+## Tecnologias
 
 | Tecnologia | Uso |
 |---|---|
@@ -58,16 +58,34 @@ NEXT_PUBLIC_TMDB_API_KEY=SUA_CHAVE_TMDB
 
 > Obtenha uma chave gratuita em [themoviedb.org](https://www.themoviedb.org/settings/api).
 
-### 4. Configure o banco de dados
+### 4. Configure as variáveis do banco (opcional)
+
+O caminho do banco SQLite é definido por `DATABASE_URL` (a mesma variável usada pelo
+`prisma.config.ts` e pelo Prisma Client em runtime). Se não for definida, o app usa
+`file:./dev.db` na raiz do projeto:
+
+```env
+DATABASE_URL="file:./dev.db"
+```
+
+### 5. Configure o banco de dados
 
 ```bash
+# Aplica todas as migrations pendentes no banco
+npx prisma migrate deploy
+
+# Gera o Prisma Client a partir do schema
 npx prisma generate
-npx prisma db push
 ```
+
+> Em desenvolvimento, para criar uma nova migration após alterar o schema:
+> ```bash
+> npx prisma migrate dev --name descricao_da_mudanca
+> ```
 
 Isso cria o arquivo `dev.db` (SQLite) e as tabelas `User`, `MovieReview` e `WatchlistItem`.
 
-### 5. Rode o app
+### 6. Rode o app
 
 ```bash
 npm run dev
@@ -80,13 +98,13 @@ Abra [http://localhost:3000](http://localhost:3000).
 ## Como usar
 
 1. **Primeiro acesso**: o app exibe automaticamente a tela de **Onboarding** — configure os dois perfis (nome + foto opcional).
-2. **Adicionar Registro**: busque um filme no TMDB, preencha data assistida, notas de ambos e quem indicou.
-3. **Histórico**: visualize os filmes em 3 modos — Diário (lista), Filmes (grid de pôsteres) e Calendário.
+2. **Adicionar Registro**: busque um filme no TMDB, preencha data assistida, notas de ambos e quem indicou. É possível registrar **múltiplas sessões do mesmo filme** e **vários filmes no mesmo dia**.
+3. **Histórico**: visualize os filmes em 3 modos — Diário (lista), Filmes (grid de pôsteres) e Calendário — com filtros por **gênero**, **nota média mínima**, **período** e quem indicou.
 4. **Lista de Interesse**: adicione filmes para assistir depois e use a **Roleta** para decidir o que ver hoje.
 5. **Perfis**: veja estatísticas individuais (favoritos, decepções, taxa de acerto) e edite nome/foto.
+6. **Configurações**: exporte/importe seus dados em JSON e gere backups físicos do banco SQLite.
 
 ---
-
-## 📝 Licença
+## Licença
 
 MIT

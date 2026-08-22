@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowDownAZ, ArrowUpAZ, CalendarDays, FilterX, LayoutGrid, List, Star } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { DropdownSelect } from "@/components/ui/DropdownSelect";
 import { HistoryListView } from "./HistoryListView";
 import { HistoryGridView } from "./HistoryGridView";
 import { HistoryCalendarView } from "./HistoryCalendarView";
@@ -224,19 +225,19 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                             >
                                 Gênero
                             </label>
-                            <select
-                                id="genreFilter"
+                            <DropdownSelect
+                                ariaLabel="Filtrar por gênero"
+                                className="w-36"
                                 value={genreFilter}
-                                onChange={(e) => setGenreFilter(e.target.value)}
-                                className="rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-200 dark:ring-gray-700"
-                            >
-                                <option value="all">Todos</option>
-                                {availableGenres.map((genre) => (
-                                    <option key={genre} value={genre}>
-                                        {genre}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={setGenreFilter}
+                                options={[
+                                    { value: "all", label: "Todos" },
+                                    ...availableGenres.map((genre) => ({
+                                        value: genre,
+                                        label: genre
+                                    }))
+                                ]}
+                            />
                         </div>
 
                         {/* Nota mínima */}
@@ -245,18 +246,19 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 <Star size={11} />
                                 Nota mín.
                             </span>
-                            <select
+                            <DropdownSelect
+                                ariaLabel="Nota média mínima"
+                                className="w-32"
                                 value={minRating}
-                                onChange={(e) => setMinRating(Number(e.target.value))}
-                                aria-label="Nota média mínima"
-                                className="rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-200 dark:ring-gray-700"
-                            >
-                                <option value={0}>Qualquer</option>
-                                <option value={2}>2+ estrelas</option>
-                                <option value={3}>3+ estrelas</option>
-                                <option value={4}>4+ estrelas</option>
-                                <option value={4.5}>4.5+ estrelas</option>
-                            </select>
+                                onChange={setMinRating}
+                                options={[
+                                    { value: 0, label: "Qualquer" },
+                                    { value: 2, label: "2+ estrelas" },
+                                    { value: 3, label: "3+ estrelas" },
+                                    { value: 4, label: "4+ estrelas" },
+                                    { value: 4.5, label: "4.5+ estrelas" }
+                                ]}
+                            />
                         </div>
 
                         {/* Período */}
