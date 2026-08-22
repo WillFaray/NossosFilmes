@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownAZ, ArrowUpAZ, CalendarDays, LayoutGrid, List, Star } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, CalendarDays, FilterX, LayoutGrid, List, Star } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { HistoryListView } from "./HistoryListView";
 import { HistoryGridView } from "./HistoryGridView";
@@ -39,6 +39,32 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     const [activeView, setActiveView] = useState<HistoryView>("list");
     const [sortBy, setSortBy] = useState<SortOption>("date-desc");
     const [recommenderFilter, setRecommenderFilter] = useState<string>("all");
+    const [genreFilter, setGenreFilter] = useState<string>("all");
+    const [minRating, setMinRating] = useState<number>(0);
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+
+    // Gêneros disponíveis nos registros atuais
+    const availableGenres = useMemo(() => {
+        const genres = new Set<string>();
+        entries.forEach((e) => e.movie.genres.forEach((g) => genres.add(g)));
+        return Array.from(genres).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }, [entries]);
+
+    const hasActiveFilters =
+        recommenderFilter !== "all" ||
+        genreFilter !== "all" ||
+        minRating > 0 ||
+        Boolean(dateFrom) ||
+        Boolean(dateTo);
+
+    const clearFilters = () => {
+        setRecommenderFilter("all");
+        setGenreFilter("all");
+        setMinRating(0);
+        setDateFrom("");
+        setDateTo("");
+    };
 
     // Aplica filtro e ordenação apenas nas visões Diário e Grid
     const filteredSortedEntries = useMemo(() => {
@@ -46,6 +72,24 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
         if (recommenderFilter !== "all") {
             result = result.filter((e) => e.review.recommendedBy === recommenderFilter);
+        }
+
+        if (genreFilter !== "all") {
+            result = result.filter((e) => e.movie.genres.includes(genreFilter));
+        }
+
+        if (minRating > 0) {
+            result = result.filter(
+                (e) => (e.review.ratingUser1 + e.review.ratingUser2) / 2 >= minRating
+            );
+        }
+
+        if (dateFrom) {
+            result = result.filter((e) => e.review.dateWatched >= dateFrom);
+        }
+
+        if (dateTo) {
+            result = result.filter((e) => e.review.dateWatched <= dateTo);
         }
 
         switch (sortBy) {
@@ -68,7 +112,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         }
 
         return result;
-    }, [entries, sortBy, recommenderFilter]);
+    }, [entries, sortBy, recommenderFilter, genreFilter, minRating, dateFrom, dateTo]);
 
     // Visão calendário sempre usa entradas completas
     const calendarEntries = useMemo(
@@ -168,6 +212,85 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* Filtros avançados: gênero, nota e período */}
+                    <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                        {/* Gênero */}
+                        <div className="flex items-center gap-2">
+                            <label
+                                htmlFor="genreFilter"
+                                className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500"
+                            >
+                                Gênero
+                            </label>
+                            <select
+                                id="genreFilter"
+                                value={genreFilter}
+                                onChange={(e) => setGenreFilter(e.target.value)}
+                                className="rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-200 dark:ring-gray-700"
+                            >
+                                <option value="all">Todos</option>
+                                {availableGenres.map((genre) => (
+                                    <option key={genre} value={genre}>
+                                        {genre}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Nota mínima */}
+                        <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                <Star size={11} />
+                                Nota mín.
+                            </span>
+                            <select
+                                value={minRating}
+                                onChange={(e) => setMinRating(Number(e.target.value))}
+                                aria-label="Nota média mínima"
+                                className="rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-200 dark:ring-gray-700"
+                            >
+                                <option value={0}>Qualquer</option>
+                                <option value={2}>2+ estrelas</option>
+                                <option value={3}>3+ estrelas</option>
+                                <option value={4}>4+ estrelas</option>
+                                <option value={4.5}>4.5+ estrelas</option>
+                            </select>
+                        </div>
+
+                        {/* Período */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                Período
+                            </span>
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                aria-label="Data inicial"
+                                className="rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-200 dark:ring-gray-700 [color-scheme:light] dark:[color-scheme:dark]"
+                            />
+                            <span className="text-xs text-gray-400">até</span>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                aria-label="Data final"
+                                className="rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-200 dark:ring-gray-700 [color-scheme:light] dark:[color-scheme:dark]"
+                            />
+                        </div>
+
+                        {/* Limpar filtros */}
+                        {hasActiveFilters && (
+                            <button
+                                onClick={clearFilters}
+                                className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                            >
+                                <FilterX size={13} />
+                                Limpar filtros
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

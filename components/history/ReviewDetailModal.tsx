@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Pencil, Trash2, UserCheck } from "lucide-react";
+import { CalendarDays, Loader2, Pencil, Trash2, UserCheck } from "lucide-react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -28,19 +28,27 @@ interface ReviewDetailModalProps {
         ratingUser2: number;
         textReview: string;
         recommendedBy: string;
-    }) => void;
-    onDelete: (id: string) => void;
+    }) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
 }
 
 export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, onEdit, onDelete }: ReviewDetailModalProps) {
     const [editOpen, setEditOpen] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
-    const handleDelete = () => {
-        if (!entry) return;
-        onDelete(entry.review.id);
-        setConfirmDelete(false);
-        onClose();
+    const handleDelete = async () => {
+        if (!entry || deleting) return;
+        setDeleting(true);
+        try {
+            await onDelete(entry.review.id);
+            setConfirmDelete(false);
+            onClose();
+        } catch (error) {
+            console.error("Erro ao excluir registro:", error);
+        } finally {
+            setDeleting(false);
+        }
     };
 
     return (
@@ -130,10 +138,20 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                         </button>
                                         <button
                                             onClick={handleDelete}
-                                            className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-500"
+                                            disabled={deleting}
+                                            className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
-                                            <Trash2 size={13} />
-                                            Excluir
+                                            {deleting ? (
+                                                <>
+                                                    <Loader2 size={13} className="animate-spin" />
+                                                    Excluindo...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Trash2 size={13} />
+                                                    Excluir
+                                                </>
+                                            )}
                                         </button>
                                     </>
                                 ) : (

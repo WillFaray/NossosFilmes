@@ -15,6 +15,7 @@ export function WatchlistSearch() {
     const [open, setOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
+    const [pendingAddId, setPendingAddId] = useState<string | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const addedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const requestIdRef = useRef(0);
@@ -70,12 +71,20 @@ export function WatchlistSearch() {
         };
     }, []);
 
-    const handleAdd = (movie: Movie) => {
-        addToWatchlist(movie);
-        setRecentlyAdded(movie.id);
+    const handleAdd = async (movie: Movie) => {
+        if (pendingAddId) return;
+        setPendingAddId(movie.id);
+        try {
+            await addToWatchlist(movie);
+            setRecentlyAdded(movie.id);
 
-        if (addedTimeoutRef.current) clearTimeout(addedTimeoutRef.current);
-        addedTimeoutRef.current = setTimeout(() => setRecentlyAdded(null), 2000);
+            if (addedTimeoutRef.current) clearTimeout(addedTimeoutRef.current);
+            addedTimeoutRef.current = setTimeout(() => setRecentlyAdded(null), 2000);
+        } catch (error) {
+            console.error("Erro ao adicionar à lista:", error);
+        } finally {
+            setPendingAddId(null);
+        }
     };
 
     return (
@@ -108,13 +117,14 @@ export function WatchlistSearch() {
                 <ul className="mt-2 max-h-72 overflow-auto rounded-xl bg-white shadow-lg ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-700">
                     {results.map((movie) => {
                         const isInWatchlist = watchlistIds.has(movie.id);
+                        const isPending = pendingAddId === movie.id;
                         const justAdded = recentlyAdded === movie.id;
                         return (
                             <li key={movie.id}>
                                 <button
                                     type="button"
                                     onClick={() => !isInWatchlist && handleAdd(movie)}
-                                    disabled={isInWatchlist}
+                                    disabled={isInWatchlist || isPending}
                                     className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-gray-50 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-gray-800 dark:disabled:hover:bg-transparent"
                                 >
                                     <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-800">
@@ -147,6 +157,11 @@ export function WatchlistSearch() {
                                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
                                             <CheckCircle2 size={12} />
                                             Já está
+                                        </span>
+                                    ) : isPending ? (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                                            <Loader2 size={12} className="animate-spin" />
+                                            Adicionando...
                                         </span>
                                     ) : justAdded ? (
                                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">

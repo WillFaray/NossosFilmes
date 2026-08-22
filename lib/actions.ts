@@ -220,7 +220,8 @@ export async function getReviews(): Promise<(DbMovieReview & { recommender: DbUs
 
 /**
  * Adiciona um novo registro de filme assistido.
- * Se o filme já tiver sido registrado (mesmo tmdbId), atualiza o registro.
+ * Se o filme já tiver sido registrado (mesmo tmdbId), atualiza o registro existente
+ * em vez de criar uma duplicata.
  */
 export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieReview> {
     // Remove o filme da watchlist, se estiver lá
@@ -228,8 +229,19 @@ export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieRe
         where: { tmdbId: input.tmdbId }
     });
 
-    const review = await prisma.movieReview.create({
-        data: {
+    const review = await prisma.movieReview.upsert({
+        where: { tmdbId: input.tmdbId },
+        update: {
+            title: input.title,
+            posterPath: input.posterPath,
+            dateWatched: input.dateWatched,
+            ratingUser1: input.ratingUser1,
+            ratingUser2: input.ratingUser2,
+            textReview: input.textReview,
+            genres: JSON.stringify(input.genres),
+            recommendedById: input.recommendedById
+        },
+        create: {
             tmdbId: input.tmdbId,
             title: input.title,
             posterPath: input.posterPath,
@@ -288,6 +300,142 @@ export async function deleteMovieReview(id: string): Promise<void> {
     revalidatePath("/lista-de-interesse");
     revalidatePath("/perfis");
     revalidatePath("/perfis/[id]");
+}
+
+/* ------------------------------------------------------------------ */
+/* Exportação / Importação / Backup                                    */
+/* ------------------------------------------------------------------ */
+
+export interface ExportData {
+    version: number;
+    exportedAt: string;
+    users: DbUser[];
+    reviews: DbMovieReview[];
+    watchlist: DbWatchlistItem[];
+}
+
+/** Exporta todos os dados da aplicação como JSON */
+export async function exportData(): Promise<ExportData> {
+    const [users, reviews, watchlist] = await Promise.all([
+        getUsers(),
+        getReviews(),
+        getWatchlist()
+    ]);
+
+    return {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        users,
+        reviews: reviews.map(({ recommender: _recommender, ...review }) => review),
+        watchlist
+    };
+}
+
+function isExportData(value: unknown): value is ExportData {
+    if (typeof value !== "object" || value === null) return false;
+    const data = value as Partial<ExportData>;
+    return (
+        Array.isArray(data.users) &&
+        Array.isArray(data.reviews) &&
+        Array.isArray(data.watchlist) &&
+        data.users.every((u) => typeof u?.id === "string" && typeof u?.name === "string" && typeof u?.avatarUrl === "string") &&
+        data.reviews.every((r) => typeof r?.id === "string" && typeof r?.tmdbId === "string") &&
+        data.watchlist.every((w) => typeof w?.id === "string" && typeof w?.tmdbId === "string")
+    );
+}
+
+/**
+ * Importa dados de um backup JSON, substituindo todo o conteúdo atual do banco.
+ * A operação é atômica: ou tudo é importado, ou nada muda.
+ */
+export async function importData(raw: unknown): Promise<{ users: number; reviews: number; watchlist: number }> {
+    if (!isExportData(raw)) {
+        throw new Error("Arquivo de importação inválido.");
+    }
+
+    const firstUser = raw.users[0];
+    if (!firstUser) {
+        throw new Error("O arquivo de importação não contém usuários.");
+    }
+
+    // Garante que os ids referenciados existam após a substituição
+    const userIds = new Set(raw.users.map((u) => u.id));
+    for (const review of raw.reviews) {
+        if (!userIds.has(review.recommendedById)) {
+            throw new Error(`Registro "${review.title}" referencia um usuário inexistente.`);
+        }
+    }
+
+    await prisma.$transaction([
+        prisma.movieReview.deleteMany(),
+        prisma.watchlistItem.deleteMany(),
+        prisma.user.deleteMany(),
+        ...raw.users.map((user) =>
+            prisma.user.create({
+                data: { id: user.id, name: user.name, avatarUrl: user.avatarUrl }
+            })
+        ),
+        ...raw.watchlist.map((item) =>
+            prisma.watchlistItem.create({
+                data: {
+                    id: item.id,
+                    tmdbId: item.tmdbId,
+                    title: item.title,
+                    posterPath: item.posterPath,
+                    genres: JSON.stringify(item.genres ?? []),
+                    addedById: userIds.has(item.id) ? item.id : firstUser.id
+                }
+            })
+        ),
+        ...raw.reviews.map((review) =>
+            prisma.movieReview.create({
+                data: {
+                    id: review.id,
+                    tmdbId: review.tmdbId,
+                    title: review.title,
+                    posterPath: review.posterPath,
+                    dateWatched: review.dateWatched,
+                    ratingUser1: review.ratingUser1,
+                    ratingUser2: review.ratingUser2,
+                    textReview: review.textReview,
+                    genres: JSON.stringify(review.genres ?? []),
+                    recommendedById: review.recommendedById
+                }
+            })
+        )
+    ]);
+
+    revalidatePath("/");
+    revalidatePath("/lista-de-interesse");
+    revalidatePath("/perfis");
+    revalidatePath("/configuracoes");
+
+    return {
+        users: raw.users.length,
+        reviews: raw.reviews.length,
+        watchlist: raw.watchlist.length
+    };
+}
+
+/**
+ * Gera um backup físico do banco SQLite (via VACUUM INTO) e retorna
+ * o conteúdo do arquivo em base64 para download no cliente.
+ */
+export async function backupDatabase(): Promise<string> {
+    const os = await import("os");
+    const fs = await import("fs/promises");
+    const path = await import("path");
+
+    const target = path.join(os.tmpdir(), `nossosfilmes-backup-${Date.now()}.db`);
+    const safeTarget = target.replace(/'/g, "''");
+
+    try {
+        await prisma.$executeRawUnsafe(`VACUUM INTO '${safeTarget}'`);
+        const buffer = await fs.readFile(target);
+        return buffer.toString("base64");
+    } finally {
+        await fs.unlink(target).catch(() => undefined);
+    }
 }
 
 

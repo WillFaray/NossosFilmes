@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import type { Movie } from "@/types";
 import { getPosterUrl } from "@/lib/utils";
 import { useReviews } from "@/components/reviews/ReviewProvider";
@@ -24,6 +24,7 @@ export function AddEntryForm() {
     const [recommendedBy, setRecommendedBy] = useState(users[0]?.id ?? "");
     const [toastOpen, setToastOpen] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
+    const [saving, setSaving] = useState(false);
 
     // Enquanto o onboarding não estiver completo, o SetupRedirect cuida do redirecionamento
     if (users.length !== 2) return null;
@@ -34,7 +35,7 @@ export function AddEntryForm() {
         setErrors([]);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const validationErrors: string[] = [];
 
@@ -49,26 +50,35 @@ export function AddEntryForm() {
             return;
         }
 
-        addEntry({
-            movie: selectedMovie!,
-            dateWatched,
-            ratingUser1,
-            ratingUser2,
-            textReview: textReview.trim(),
-            recommendedBy
-        });
+        setSaving(true);
+        try {
+            // Aguarda a persistência concluir antes de resetar o formulário
+            await addEntry({
+                movie: selectedMovie!,
+                dateWatched,
+                ratingUser1,
+                ratingUser2,
+                textReview: textReview.trim(),
+                recommendedBy
+            });
 
-        // Reset para novo registro
-        setSelectedMovie(null);
-        setDateWatched("");
-        setRatingUser1(0);
-        setRatingUser2(0);
-        setTextReview("");
-        setRecommendedBy(users[0].id);
-        setErrors([]);
-        setToastOpen(true);
+            // Reset para novo registro
+            setSelectedMovie(null);
+            setDateWatched("");
+            setRatingUser1(0);
+            setRatingUser2(0);
+            setTextReview("");
+            setRecommendedBy(users[0].id);
+            setErrors([]);
+            setToastOpen(true);
 
-        window.setTimeout(() => setToastOpen(false), 3000);
+            window.setTimeout(() => setToastOpen(false), 3000);
+        } catch (error) {
+            console.error("Erro ao salvar registro:", error);
+            setErrors(["Não foi possível salvar o registro. Tente novamente."]);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -232,9 +242,11 @@ export function AddEntryForm() {
                     <div className="flex justify-end">
                         <button
                             type="submit"
-                            className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-dark"
+                            disabled={saving}
+                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-surface-dark"
                         >
-                            Salvar registro
+                            {saving && <Loader2 size={15} className="animate-spin" />}
+                            {saving ? "Salvando..." : "Salvar registro"}
                         </button>
                     </div>
                 </form>

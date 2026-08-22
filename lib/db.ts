@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
@@ -6,7 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-    const adapter = new PrismaBetterSqlite3({ url: "file:./dev.db" });
+    // Usa a mesma fonte de verdade do prisma.config.ts (DATABASE_URL),
+    // com fallback para o banco local de desenvolvimento.
+    const url = process.env.DATABASE_URL ?? "file:./dev.db";
+    const adapter = new PrismaBetterSqlite3({ url });
     return new PrismaClient({ adapter });
 }
 

@@ -19,19 +19,22 @@ interface HistoryCalendarViewProps {
     user2: User;
 }
 
+type CalendarEntry = HistoryCalendarViewProps["entries"][number];
+
 interface DayEntry {
     date: Date;
-    entry?: HistoryCalendarViewProps["entries"][number];
+    entries: CalendarEntry[];
 }
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MAX_POSTERS_PER_DAY = 3;
 
 export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarViewProps) {
     const { users, updateEntry, deleteEntry } = useReviews();
     const today = useMemo(() => new Date(), []);
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
-    const [selectedEntry, setSelectedEntry] = useState<HistoryCalendarViewProps["entries"][number] | null>(null);
+    const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
 
 
     const monthName = new Date(viewYear, viewMonth, 1).toLocaleDateString("pt-BR", {
@@ -39,11 +42,17 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
         year: "numeric"
     });
 
+    // Suporta múltiplos filmes assistidos no mesmo dia
     const entriesByDate = useMemo(() => {
-        const map = new Map<string, HistoryCalendarViewProps["entries"][number]>();
+        const map = new Map<string, CalendarEntry[]>();
         entries.forEach((entry) => {
             const key = entry.review.dateWatched;
-            map.set(key, entry);
+            const list = map.get(key);
+            if (list) {
+                list.push(entry);
+            } else {
+                map.set(key, [entry]);
+            }
         });
         return map;
     }, [entries]);
@@ -60,7 +69,7 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
             result.push({
                 date,
-                entry: entriesByDate.get(key)
+                entries: entriesByDate.get(key) ?? []
             });
         }
         return result;
@@ -128,41 +137,64 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
 
                 {/* Grid de dias */}
                 <div className="grid grid-cols-7">
-                    {days.map(({ date, entry }, index) => {
+                    {days.map(({ date, entries: dayEntries }, index) => {
                         const inCurrentMonth = isCurrentMonth(date);
                         const todayClass = isToday(date);
+                        const hasEntries = dayEntries.length > 0;
 
                         return (
                             <div
                                 key={date.toISOString()}
                                 className={index % 7 !== 6 ? "border-r border-b border-gray-100 dark:border-gray-800" : "border-b border-gray-100 dark:border-gray-800"}
                             >
-                                {entry ? (
-                                    <button
-                                        onClick={() => setSelectedEntry(entry)}
-                                        className="group relative block aspect-[3/4] w-full overflow-hidden bg-gray-100 transition-all duration-200 hover:z-10 hover:scale-[1.03] hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:bg-gray-800 dark:hover:ring-indigo-500"
-                                        title={`${entry.movie.title} — ${formatDate(entry.review.dateWatched)}`}
-                                    >
-                                        {entry.movie.poster_path ? (
-                                            <Image
-                                                src={getPosterUrl(entry.movie.poster_path, "w342")}
-                                                alt={entry.movie.title}
-                                                fill
-                                                sizes="(max-width: 768px) 25vw, 14vw"
-                                                className="object-cover"
-                                            />
-                                        ) : (
-                                            <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-gray-400">
-                                                {entry.movie.title}
-                                            </span>
-                                        )}
-                                        <span className="absolute left-1 top-1 rounded-md bg-gray-900/70 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                {hasEntries ? (
+                                    <div className="relative aspect-[3/4] w-full bg-gray-100 dark:bg-gray-800">
+                                        {/* Posters do dia (até MAX_POSTERS_PER_DAY) */}
+                                        <div className="flex h-full w-full">
+                                            {dayEntries.slice(0, MAX_POSTERS_PER_DAY).map((entry) => (
+                                                <button
+                                                    key={entry.review.id}
+                                                    onClick={() => setSelectedEntry(entry)}
+                                                    className="group relative min-w-0 flex-1 overflow-hidden transition-all duration-200 hover:z-10 hover:scale-[1.05] hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500"
+                                                    title={`${entry.movie.title} — ${formatDate(entry.review.dateWatched)}`}
+                                                    aria-label={`Ver detalhes de ${entry.movie.title}`}
+                                                >
+                                                    {entry.movie.poster_path ? (
+                                                        <Image
+                                                            src={getPosterUrl(entry.movie.poster_path, "w342")}
+                                                            alt={entry.movie.title}
+                                                            fill
+                                                            sizes="(max-width: 768px) 25vw, 14vw"
+                                                            className="object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-gray-400">
+                                                            {entry.movie.title}
+                                                        </span>
+                                                    )}
+                                                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/80 to-transparent px-1 pb-1 pt-4 text-left text-[9px] font-medium leading-tight text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                                        {entry.movie.title}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                            {/* Indicador de filmes extras */}
+                                            {dayEntries.length > MAX_POSTERS_PER_DAY && (
+                                                <button
+                                                    onClick={() => setSelectedEntry(dayEntries[MAX_POSTERS_PER_DAY])}
+                                                    className="flex w-8 shrink-0 flex-col items-center justify-center bg-gray-200/80 text-[10px] font-semibold text-gray-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:bg-gray-700/80 dark:text-gray-300 dark:hover:bg-indigo-500/10"
+                                                    title={`+${dayEntries.length - MAX_POSTERS_PER_DAY} filme(s) neste dia`}
+                                                    aria-label={`Ver mais ${dayEntries.length - MAX_POSTERS_PER_DAY} filme(s) deste dia`}
+                                                >
+                                                    +{dayEntries.length - MAX_POSTERS_PER_DAY}
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Dia do mês */}
+                                        <span className="pointer-events-none absolute left-1 top-1 z-10 rounded-md bg-gray-900/70 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                                             {date.getDate()}
                                         </span>
-                                        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/80 to-transparent px-1 pb-1 pt-4 text-left text-[9px] font-medium leading-tight text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                            {entry.movie.title}
-                                        </span>
-                                    </button>
+                                    </div>
                                 ) : (
                                     <div
                                         className={`flex aspect-[3/4] w-full items-start justify-center pt-2 text-xs ${inCurrentMonth

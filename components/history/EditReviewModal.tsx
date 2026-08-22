@@ -21,7 +21,7 @@ interface EditReviewModalProps {
         ratingUser2: number;
         textReview: string;
         recommendedBy: string;
-    }) => void;
+    }) => Promise<void>;
 }
 
 export function EditReviewModal({ open, onClose, review, movie, users, onSave }: EditReviewModalProps) {
@@ -33,7 +33,7 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!dateWatched) {
             setError("Informe a data assistida.");
             return;
@@ -54,17 +54,23 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
         setSaving(true);
         setError(null);
 
-        onSave(review.id, {
-            movie,
-            dateWatched,
-            ratingUser1,
-            ratingUser2,
-            textReview: textReview.trim(),
-            recommendedBy
-        });
-
-        onClose();
-        setSaving(false);
+        try {
+            // Aguarda a persistência concluir antes de fechar o modal
+            await onSave(review.id, {
+                movie,
+                dateWatched,
+                ratingUser1,
+                ratingUser2,
+                textReview: textReview.trim(),
+                recommendedBy
+            });
+            onClose();
+        } catch (error) {
+            console.error("Erro ao salvar edição:", error);
+            setError("Não foi possível salvar as alterações. Tente novamente.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -88,6 +94,7 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                             type="date"
                             value={dateWatched}
                             onChange={(e) => setDateWatched(e.target.value)}
+                            disabled={saving}
                             className="w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700 [color-scheme:light] dark:[color-scheme:dark]"
                         />
                     </div>
@@ -134,6 +141,7 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                             rows={3}
                             maxLength={280}
                             placeholder="O que acharam do filme?"
+                            disabled={saving}
                             className="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
                         />
                         <p className="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
@@ -163,6 +171,7 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                                         value={user.id}
                                         checked={recommendedBy === user.id}
                                         onChange={() => setRecommendedBy(user.id)}
+                                        disabled={saving}
                                         className="sr-only"
                                     />
                                     <Avatar src={user.avatar} name={user.name} size="sm" />
@@ -184,7 +193,8 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                 <div className="mt-6 flex justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        disabled={saving}
+                        className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                     >
                         Cancelar
                     </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, MoreVertical } from "lucide-react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -87,11 +87,7 @@ export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps)
 
                             {/* Indicador de mais opções */}
                             <div className="shrink-0 pl-1 text-gray-300 transition-colors group-hover:text-indigo-400 dark:text-gray-600 dark:group-hover:text-indigo-400">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                    <circle cx="12" cy="5" r="1" />
-                                    <circle cx="12" cy="12" r="1" />
-                                    <circle cx="12" cy="19" r="1" />
-                                </svg>
+                                <MoreVertical size={16} aria-hidden="true" />
                             </div>
                         </button>
                     </li>

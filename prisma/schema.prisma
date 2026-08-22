@@ -27,7 +27,7 @@ model WatchlistItem {
 
 model MovieReview {
     id             String  @id @default(cuid())
-    tmdbId         String
+    tmdbId         String  @unique
     title          String
     posterPath     String
     dateWatched    String

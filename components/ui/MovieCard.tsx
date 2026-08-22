@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { Check, Loader2, Trash2, X } from "lucide-react";
 import type { Movie } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 
@@ -10,10 +11,37 @@ interface MovieCardProps {
     movie: Movie;
     className?: string;
     index?: number;
-    onRemove?: (movie: Movie) => void;
+    onRemove?: (movie: Movie) => void | Promise<void>;
 }
 
 export function MovieCard({ movie, className = "", index = 0, onRemove }: MovieCardProps) {
+    const [confirming, setConfirming] = useState(false);
+    const [removing, setRemoving] = useState(false);
+
+    const handleRemoveClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!removing) setConfirming(true);
+    };
+
+    const handleCancelRemove = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setConfirming(false);
+    };
+
+    const handleConfirmRemove = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!onRemove || removing) return;
+        setRemoving(true);
+        try {
+            await onRemove(movie);
+            setConfirming(false);
+        } catch (error) {
+            console.error("Erro ao remover da lista:", error);
+        } finally {
+            setRemoving(false);
+        }
+    };
+
     return (
         <motion.article
             initial={{ opacity: 0, y: 16 }}
@@ -39,14 +67,52 @@ export function MovieCard({ movie, className = "", index = 0, onRemove }: MovieC
                 {/* Brilho sutil no hover */}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
+                {/* Remoção: confirmação + loading */}
+                {onRemove && confirming && (
+                    <div
+                        className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/70 backdrop-blur-sm"
+                        role="alertdialog"
+                        aria-label={`Remover ${movie.title} da lista?`}
+                    >
+                        {removing ? (
+                            <>
+                                <Loader2 size={22} className="animate-spin text-white" />
+                                <span className="text-xs font-medium text-white">Removendo...</span>
+                            </>
+                        ) : (
+                            <>
+                                <p className="px-3 text-center text-xs font-medium leading-snug text-white">
+                                    Remover da lista?
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleCancelRemove}
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
+                                        aria-label="Cancelar"
+                                        title="Cancelar"
+                                    >
+                                        <X size={15} />
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmRemove}
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-500"
+                                        aria-label="Confirmar remoção"
+                                        title="Confirmar"
+                                    >
+                                        <Check size={15} />
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {/* Botão remover (opcional) */}
-                {onRemove && (
+                {onRemove && !confirming && (
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onRemove(movie);
-                        }}
-                        className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-red-600 group-hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                        onClick={handleRemoveClick}
+                        disabled={removing}
+                        className="absolute right-2 top-2 z-[5] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-red-600 group-hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                         aria-label={`Remover ${movie.title} da lista`}
                         title="Remover da lista"
                     >

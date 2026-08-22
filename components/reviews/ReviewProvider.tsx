@@ -12,6 +12,16 @@ import {
 } from "@/lib/actions";
 
 import { toAppReview, toAppUser, toMovieFromReview } from "@/lib/adapters";
+import { Toast } from "@/components/ui/Toast";
+
+export interface EntryInput {
+    movie: Movie;
+    dateWatched: string;
+    ratingUser1: number;
+    ratingUser2: number;
+    textReview: string;
+    recommendedBy: string;
+}
 
 interface ReviewProviderValue {
     users: User[];
@@ -19,25 +29,11 @@ interface ReviewProviderValue {
     reviews: Review[];
     watchlist: Movie[];
     updateUser: (updated: User) => void;
-    addEntry: (entry: {
-        movie: Movie;
-        dateWatched: string;
-        ratingUser1: number;
-        ratingUser2: number;
-        textReview: string;
-        recommendedBy: string;
-    }) => void;
-    updateEntry: (id: string, entry: {
-        movie: Movie;
-        dateWatched: string;
-        ratingUser1: number;
-        ratingUser2: number;
-        textReview: string;
-        recommendedBy: string;
-    }) => void;
-    deleteEntry: (id: string) => void;
-    addToWatchlist: (movie: Movie) => void;
-    removeFromWatchlist: (id: string) => void;
+    addEntry: (entry: EntryInput) => Promise<void>;
+    updateEntry: (id: string, entry: EntryInput) => Promise<void>;
+    deleteEntry: (id: string) => Promise<void>;
+    addToWatchlist: (movie: Movie) => Promise<void>;
+    removeFromWatchlist: (id: string) => Promise<void>;
 }
 
 
@@ -68,28 +64,51 @@ export function ReviewProvider({
         }))
     );
 
-    // Filmes são derivados das reviews (cada review tem título, poster, gêneros)
+    // Dados dos filmes (título, poster, gêneros) por tmdbId.
+    // Mantido em estado para que filmes recém-adicionados apareçam
+    // imediatamente no histórico, sem depender apenas de initialReviews.
+    const [movieData, setMovieData] = useState<Map<string, Movie>>(() => {
+        const map = new Map<string, Movie>();
+        initialReviews.forEach((review) => {
+            const movie = toMovieFromReview(review);
+            map.set(movie.id, movie);
+        });
+        return map;
+    });
+
+    // Mensagem de erro de persistência exibida via Toast
+    const [persistError, setPersistError] = useState<string | null>(null);
+
+    const reportError = useCallback((message: string) => {
+        setPersistError(message);
+        window.setTimeout(() => setPersistError((current) => (current === message ? null : current)), 5000);
+    }, []);
+
+    // Filmes são derivados das reviews + dados de filme conhecidos
     const movies = useMemo<Movie[]>(() => {
-        const movieMap = new Map<string, Movie>();
+        const seen = new Set<string>();
+        const result: Movie[] = [];
         reviews.forEach((review) => {
-            const dbReview = initialReviews.find((r) => r.id === review.id);
-            if (dbReview) {
-                const movie = toMovieFromReview(dbReview);
-                if (!movieMap.has(movie.id)) movieMap.set(movie.id, movie);
+            if (seen.has(review.movieId)) return;
+            const movie = movieData.get(review.movieId);
+            if (movie) {
+                seen.add(review.movieId);
+                result.push(movie);
             }
         });
-        return Array.from(movieMap.values());
-    }, [reviews, initialReviews]);
+        return result;
+    }, [reviews, movieData]);
 
-    const addEntry = useCallback((entry: {
-        movie: Movie;
-        dateWatched: string;
-        ratingUser1: number;
-        ratingUser2: number;
-        textReview: string;
-        recommendedBy: string;
-    }) => {
-        void (async () => {
+    const upsertMovieData = useCallback((movie: Movie) => {
+        setMovieData((prev) => {
+            const next = new Map(prev);
+            next.set(movie.id, movie);
+            return next;
+        });
+    }, []);
+
+    const addEntry = useCallback(async (entry: EntryInput) => {
+        try {
             const dbReview = await addMovieReview({
                 tmdbId: entry.movie.id,
                 title: entry.movie.title,
@@ -102,17 +121,25 @@ export function ReviewProvider({
                 recommendedById: entry.recommendedBy
             });
 
-            setReviews((prev) => [toAppReview(dbReview), ...prev]);
+            upsertMovieData(entry.movie);
+            setReviews((prev) => [
+                toAppReview(dbReview),
+                ...prev.filter((r) => r.id !== dbReview.id)
+            ]);
             setWatchlist((prev) => prev.filter((m) => m.id !== dbReview.tmdbId));
-        })();
-    }, []);
+        } catch (error) {
+            console.error("Erro ao salvar registro:", error);
+            reportError("Não foi possível salvar o registro. Tente novamente.");
+            throw error;
+        }
+    }, [reportError, upsertMovieData]);
 
     const updateUserHandler = useCallback((updated: User) => {
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     }, []);
 
-    const addToWatchlistHandler = useCallback((movie: Movie) => {
-        void (async () => {
+    const addToWatchlistHandler = useCallback(async (movie: Movie) => {
+        try {
             await addToWatchlist({
                 tmdbId: movie.id,
                 title: movie.title,
@@ -124,18 +151,15 @@ export function ReviewProvider({
                 if (prev.some((m) => m.id === movie.id)) return prev;
                 return [movie, ...prev];
             });
-        })();
-    }, []);
+        } catch (error) {
+            console.error("Erro ao adicionar à lista de interesse:", error);
+            reportError(`Não foi possível adicionar "${movie.title}" à lista.`);
+            throw error;
+        }
+    }, [reportError]);
 
-    const updateEntryHandler = useCallback((id: string, entry: {
-        movie: Movie;
-        dateWatched: string;
-        ratingUser1: number;
-        ratingUser2: number;
-        textReview: string;
-        recommendedBy: string;
-    }) => {
-        void (async () => {
+    const updateEntryHandler = useCallback(async (id: string, entry: EntryInput) => {
+        try {
             const dbReview = await updateMovieReview(id, {
                 tmdbId: entry.movie.id,
                 title: entry.movie.title,
@@ -148,25 +172,38 @@ export function ReviewProvider({
                 recommendedById: entry.recommendedBy
             });
 
+            upsertMovieData(entry.movie);
             setReviews((prev) =>
                 prev.map((r) => (r.id === id ? toAppReview(dbReview) : r))
             );
-        })();
-    }, []);
+        } catch (error) {
+            console.error("Erro ao atualizar registro:", error);
+            reportError("Não foi possível atualizar o registro. Tente novamente.");
+            throw error;
+        }
+    }, [reportError, upsertMovieData]);
 
-    const deleteEntryHandler = useCallback((id: string) => {
-        void (async () => {
+    const deleteEntryHandler = useCallback(async (id: string) => {
+        try {
             await deleteMovieReview(id);
             setReviews((prev) => prev.filter((r) => r.id !== id));
-        })();
-    }, []);
+        } catch (error) {
+            console.error("Erro ao excluir registro:", error);
+            reportError("Não foi possível excluir o registro. Tente novamente.");
+            throw error;
+        }
+    }, [reportError]);
 
-    const removeFromWatchlistHandler = useCallback((id: string) => {
-        void (async () => {
+    const removeFromWatchlistHandler = useCallback(async (id: string) => {
+        try {
             await removeFromWatchlist(id);
             setWatchlist((prev) => prev.filter((m) => m.id !== id));
-        })();
-    }, []);
+        } catch (error) {
+            console.error("Erro ao remover da lista de interesse:", error);
+            reportError("Não foi possível remover o filme da lista.");
+            throw error;
+        }
+    }, [reportError]);
 
 
     return (
@@ -185,6 +222,12 @@ export function ReviewProvider({
             }}
         >
             {children}
+            {/* Erros globais de persistência */}
+            <Toast
+                open={Boolean(persistError)}
+                message={persistError ?? ""}
+                onClose={() => setPersistError(null)}
+            />
         </ReviewContext.Provider>
     );
 }

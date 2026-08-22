@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clapperboard, History, ListPlus, Moon, PlusCircle, Sun, Users, X } from "lucide-react";
+import { Clapperboard, History, ListPlus, Moon, PlusCircle, Settings, Sun, Users, X } from "lucide-react";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { cn } from "@/lib/cn";
 
@@ -14,7 +14,8 @@ interface SidebarProps {
 const navItems = [
     { href: "/", label: "Histórico", icon: History },
     { href: "/lista-de-interesse", label: "Lista de Interesse", icon: ListPlus },
-    { href: "/perfis", label: "Perfis", icon: Users }
+    { href: "/perfis", label: "Perfis", icon: Users },
+    { href: "/configuracoes", label: "Configurações", icon: Settings }
 ];
 
 const primaryActions = [
