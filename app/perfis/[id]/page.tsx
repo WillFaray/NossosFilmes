@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Award, ChevronRight, Heart, Pencil, Star, Target, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { StarRating } from "@/components/ui/StarRating";
@@ -38,73 +38,100 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const otherKey = isUser1 ? "ratingUser2" : "ratingUser1";
     const otherUser = isUser1 ? user2 : user1;
 
-    // Monta lista de reviews com dados do filme
-    const ratedEntries = reviews
-        .map((review) => ({
-            review,
-            movie: movies.find((m) => m.id === review.movieId)
-        }))
-        .filter((entry): entry is { review: (typeof reviews)[number]; movie: (typeof movies)[number] } =>
-            Boolean(entry.movie)
+    // Calcula as estatísticas do perfil memoizadas para evitar reprocessamento ao abrir/fechar modais
+    const {
+        ratedEntries,
+        avgRating,
+        topFavorites,
+        allFavorites,
+        topDisappointments,
+        allDisappointments,
+        recommendedReviews,
+        bestRecommendation,
+        allRecommendations,
+        hitRate
+    } = useMemo(() => {
+        // Monta lista de reviews com dados do filme
+        const rated = reviews
+            .map((review) => ({
+                review,
+                movie: movies.find((m) => m.id === review.movieId)
+            }))
+            .filter((entry): entry is { review: (typeof reviews)[number]; movie: (typeof movies)[number] } =>
+                Boolean(entry.movie)
+            );
+
+        // Nota média geral deste usuário
+        const avg =
+            rated.length > 0
+                ? rated.reduce((sum, { review }) => sum + review[selfKey], 0) / rated.length
+                : 0;
+
+        // 3 Favoritos (maiores notas deste usuário)
+        const topFavs = [...rated]
+            .sort((a, b) => b.review[selfKey] - a.review[selfKey])
+            .slice(0, 3)
+            .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
+
+        // Todos os favoritos: nota >= 4, ordenados maior -> menor
+        const allFavs = rated
+            .filter(({ review }) => review[selfKey] >= 4)
+            .sort((a, b) => b.review[selfKey] - a.review[selfKey])
+            .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
+
+        // 3 Decepções (menores notas deste usuário)
+        const topDisapp = [...rated]
+            .sort((a, b) => a.review[selfKey] - b.review[selfKey])
+            .slice(0, 3)
+            .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
+
+        // Todas as decepções: nota <= 2.5, ordenados menor -> maior
+        const allDisapp = rated
+            .filter(({ review }) => review[selfKey] <= 2.5)
+            .sort((a, b) => a.review[selfKey] - b.review[selfKey])
+            .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
+
+        // Filmes indicados por este usuário
+        const recReviews = rated.filter(
+            ({ review }) => review.recommendedBy === user.id
         );
 
-    // Nota média geral deste usuário
-    const avgRating =
-        ratedEntries.length > 0
-            ? ratedEntries.reduce((sum, { review }) => sum + review[selfKey], 0) / ratedEntries.length
-            : 0;
+        // Maior sucesso de indicação (maior nota do OUTRO)
+        const bestRec = [...recReviews].sort(
+            (a, b) => b.review[otherKey] - a.review[otherKey]
+        )[0];
 
-    // 3 Favoritos (maiores notas deste usuário)
-    const topFavorites = [...ratedEntries]
-        .sort((a, b) => b.review[selfKey] - a.review[selfKey])
-        .slice(0, 3)
-        .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
+        // Todos os sucessos de indicação (indicados por este usuário, ordenados pela nota do outro)
+        const allRecs = [...recReviews]
+            .sort((a, b) => b.review[otherKey] - a.review[otherKey])
+            .map(({ review, movie }) => ({
+                movie,
+                rating: review[selfKey],
+                otherRating: review[otherKey],
+                recommender: user,
+                dateWatched: review.dateWatched
+            }));
 
-    // Todos os favoritos: nota >= 4, ordenados maior -> menor
-    const allFavorites = ratedEntries
-        .filter(({ review }) => review[selfKey] >= 4)
-        .sort((a, b) => b.review[selfKey] - a.review[selfKey])
-        .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
+        // Taxa de acerto
+        const rate =
+            recReviews.length > 0
+                ? recReviews.reduce((sum, { review }) => sum + review[otherKey], 0) /
+                recReviews.length
+                : 0;
 
-    // 3 Decepções (menores notas deste usuário)
-    const topDisappointments = [...ratedEntries]
-        .sort((a, b) => a.review[selfKey] - b.review[selfKey])
-        .slice(0, 3)
-        .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
-
-    // Todas as decepções: nota <= 2.5, ordenados menor -> maior
-    const allDisappointments = ratedEntries
-        .filter(({ review }) => review[selfKey] <= 2.5)
-        .sort((a, b) => a.review[selfKey] - b.review[selfKey])
-        .map(({ review, movie }) => ({ movie, rating: review[selfKey] }));
-
-    // Filmes indicados por este usuário
-    const recommendedReviews = ratedEntries.filter(
-        ({ review }) => review.recommendedBy === user.id
-    );
-
-    // Maior sucesso de indicação (maior nota do OUTRO)
-    const bestRecommendation = [...recommendedReviews].sort(
-        (a, b) => b.review[otherKey] - a.review[otherKey]
-    )[0];
-
-    // Todos os sucessos de indicação (indicados por este usuário, ordenados pela nota do outro)
-    const allRecommendations = [...recommendedReviews]
-        .sort((a, b) => b.review[otherKey] - a.review[otherKey])
-        .map(({ review, movie }) => ({
-            movie,
-            rating: review[selfKey],
-            otherRating: review[otherKey],
-            recommender: user,
-            dateWatched: review.dateWatched
-        }));
-
-    // Taxa de acerto
-    const hitRate =
-        recommendedReviews.length > 0
-            ? recommendedReviews.reduce((sum, { review }) => sum + review[otherKey], 0) /
-            recommendedReviews.length
-            : 0;
+        return {
+            ratedEntries: rated,
+            avgRating: avg,
+            topFavorites: topFavs,
+            allFavorites: allFavs,
+            topDisappointments: topDisapp,
+            allDisappointments: allDisapp,
+            recommendedReviews: recReviews,
+            bestRecommendation: bestRec,
+            allRecommendations: allRecs,
+            hitRate: rate
+        };
+    }, [reviews, movies, selfKey, otherKey, user]);
 
     // Dados para o modal de expansão
     const expansionData: Record<ProfileExpansionType, typeof allFavorites> = {

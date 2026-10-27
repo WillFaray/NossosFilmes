@@ -254,7 +254,7 @@ export async function addToWatchlist(input: {
     posterPath: string;
     genres: string[];
 }): Promise<DbWatchlistItem> {
-    const firstUser = await prisma.user.findFirst();
+    const firstUser = await prisma.user.findFirst({ select: { id: true } });
     if (!firstUser) {
         throw new Error("Nenhum usuário cadastrado.");
     }
@@ -291,15 +291,6 @@ export async function removeFromWatchlist(tmdbId: string): Promise<void> {
     revalidatePath("/");
 }
 
-/** Remove um filme da watchlist (pelo id do registro) */
-export async function deleteWatchlistItem(id: string): Promise<void> {
-    await prisma.watchlistItem.delete({
-        where: { id }
-    });
-
-    revalidatePath("/lista-de-interesse");
-    revalidatePath("/");
-}
 
 
 /** Busca todas as reviews, incluindo o indicador */

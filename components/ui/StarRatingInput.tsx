@@ -127,5 +127,3 @@ export function StarRatingInput({
         </div>
     );
 }
-
-export default StarRatingInput;

@@ -28,6 +28,9 @@
         "tsx": "^4.23.12",
         "typescript": "^5.9.3"
     },
+    "overrides": {
+        "better-sqlite3": "$better-sqlite3"
+    },
     "allowScripts": {
         "prisma@7.9.1": true,
         "@prisma/engines@7.9.1": true,

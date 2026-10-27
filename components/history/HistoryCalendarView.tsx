@@ -36,6 +36,11 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
     const [viewMonth, setViewMonth] = useState(today.getMonth());
     const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
 
+    const activeEntry = useMemo(() => {
+        if (!selectedEntry) return null;
+        return entries.find((e) => e.review.id === selectedEntry.review.id) ?? selectedEntry;
+    }, [entries, selectedEntry]);
+
 
     const monthName = new Date(viewYear, viewMonth, 1).toLocaleDateString("pt-BR", {
         month: "long",
@@ -215,9 +220,9 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
 
             {/* Modal de detalhes */}
             <ReviewDetailModal
-                open={Boolean(selectedEntry)}
+                open={Boolean(activeEntry)}
                 onClose={() => setSelectedEntry(null)}
-                entry={selectedEntry}
+                entry={activeEntry}
                 user1={user1}
                 user2={user2}
                 users={users}

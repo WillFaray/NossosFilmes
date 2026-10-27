@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, MoreVertical } from "lucide-react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
@@ -23,6 +23,11 @@ interface HistoryListViewProps {
 export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps) {
     const { users, updateEntry, deleteEntry } = useReviews();
     const [selectedEntry, setSelectedEntry] = useState<HistoryListViewProps["entries"][number] | null>(null);
+
+    const activeEntry = useMemo(() => {
+        if (!selectedEntry) return null;
+        return entries.find((e) => e.review.id === selectedEntry.review.id) ?? selectedEntry;
+    }, [entries, selectedEntry]);
 
     return (
         <>
@@ -96,9 +101,9 @@ export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps)
 
             {/* Modal de detalhes */}
             <ReviewDetailModal
-                open={Boolean(selectedEntry)}
+                open={Boolean(activeEntry)}
                 onClose={() => setSelectedEntry(null)}
-                entry={selectedEntry}
+                entry={activeEntry}
                 user1={user1}
                 user2={user2}
                 users={users}

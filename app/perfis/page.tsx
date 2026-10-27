@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ArrowRight, Film, Star, Users } from "lucide-react";
 import Link from "next/link";
 import { useReviews } from "@/components/reviews/ReviewProvider";
@@ -13,10 +14,41 @@ export default function ProfilesPage() {
     if (users.length !== 2) return null;
 
     const [user1, user2] = users;
-    const pairs = [
-        { user: user1, ratingKey: "ratingUser1" as const },
-        { user: user2, ratingKey: "ratingUser2" as const }
-    ];
+
+    const profileCards = useMemo(() => {
+        const movieMap = new Map(movies.map((m) => [m.id, m]));
+        const validEntries = reviews
+            .map((review) => {
+                const movie = movieMap.get(review.movieId);
+                return movie ? { review, movie } : null;
+            })
+            .filter((e): e is { review: (typeof reviews)[number]; movie: (typeof movies)[number] } => Boolean(e));
+
+        const pairs = [
+            { user: user1, ratingKey: "ratingUser1" as const },
+            { user: user2, ratingKey: "ratingUser2" as const }
+        ];
+
+        return pairs.map(({ user, ratingKey }) => {
+            const totalMovies = validEntries.length;
+            const avgRating =
+                totalMovies > 0
+                    ? validEntries.reduce((sum, { review }) => sum + review[ratingKey], 0) / totalMovies
+                    : 0;
+            const favorites = validEntries
+                .filter(({ review }) => review[ratingKey] >= 4)
+                .map(({ movie }) => movie);
+            const recommended = reviews.filter((r) => r.recommendedBy === user.id).length;
+
+            return {
+                user,
+                totalMovies,
+                avgRating,
+                favorites,
+                recommended
+            };
+        });
+    }, [movies, reviews, user1, user2]);
 
     return (
         <div className="space-y-8">
@@ -35,23 +67,7 @@ export default function ProfilesPage() {
 
             {/* Grid de perfis */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {pairs.map(({ user, ratingKey }) => {
-                    const userReviews = reviews.map((review) => ({
-                        review,
-                        movie: movies.find((m) => m.id === review.movieId)
-                    })).filter((entry): entry is { review: (typeof reviews)[number]; movie: (typeof movies)[number] } =>
-                        Boolean(entry.movie)
-                    );
-
-                    const totalMovies = userReviews.length;
-                    const avgRating =
-                        totalMovies > 0
-                            ? userReviews.reduce((sum, { review }) => sum + review[ratingKey], 0) / totalMovies
-                            : 0;
-                    const favorites = userReviews
-                        .filter(({ review }) => review[ratingKey] >= 4)
-                        .map(({ movie }) => movie);
-                    const recommended = reviews.filter((r) => r.recommendedBy === user.id).length;
+                {profileCards.map(({ user, totalMovies, avgRating, favorites, recommended }) => {
 
                     return (
                         <Link

@@ -125,9 +125,11 @@ export function MovieCard({ movie, className = "", index = 0, onRemove }: MovieC
                 <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
                     {movie.title}
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatDate(movie.release_date)}
-                </p>
+                {movie.release_date ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatDate(movie.release_date)}
+                    </p>
+                ) : null}
                 <div className="mt-auto flex flex-wrap gap-1 pt-2">
                     {movie.genres.slice(0, 3).map((genre) => (
                         <span

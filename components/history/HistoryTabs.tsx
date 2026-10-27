@@ -95,21 +95,21 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
         switch (sortBy) {
             case "date-desc":
-                result.sort((a, b) => new Date(b.review.dateWatched).getTime() - new Date(a.review.dateWatched).getTime());
+                result.sort((a, b) => b.review.dateWatched.localeCompare(a.review.dateWatched));
                 break;
             case "date-asc":
-                result.sort((a, b) => new Date(a.review.dateWatched).getTime() - new Date(b.review.dateWatched).getTime());
+                result.sort((a, b) => a.review.dateWatched.localeCompare(b.review.dateWatched));
                 break;
-            case "rating-desc": {
-                const avg = (r: Review) => (r.ratingUser1 + r.ratingUser2) / 2;
-                result.sort((a, b) => avg(b.review) - avg(a.review));
+            case "rating-desc":
+                result.sort(
+                    (a, b) => (b.review.ratingUser1 + b.review.ratingUser2) - (a.review.ratingUser1 + a.review.ratingUser2)
+                );
                 break;
-            }
-            case "rating-asc": {
-                const avg = (r: Review) => (r.ratingUser1 + r.ratingUser2) / 2;
-                result.sort((a, b) => avg(a.review) - avg(b.review));
+            case "rating-asc":
+                result.sort(
+                    (a, b) => (a.review.ratingUser1 + a.review.ratingUser2) - (b.review.ratingUser1 + b.review.ratingUser2)
+                );
                 break;
-            }
         }
 
         return result;
@@ -117,9 +117,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
     // Visão calendário sempre usa entradas completas
     const calendarEntries = useMemo(
-        () => [...entries].sort(
-            (a, b) => new Date(b.review.dateWatched).getTime() - new Date(a.review.dateWatched).getTime()
-        ),
+        () => [...entries].sort((a, b) => b.review.dateWatched.localeCompare(a.review.dateWatched)),
         [entries]
     );
 

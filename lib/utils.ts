@@ -1,7 +1,9 @@
 /**
- * Formata uma data ISO para o formato brasileiro (dd/mm/aaaa)
+ * Formata uma data ISO para o formato brasileiro (dd/mm/aaaa).
+ * Retorna string vazia caso a data seja nula, vazia ou inválida.
  */
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr?: string | null): string {
+    if (!dateStr) return "";
     // Quando a data é apenas "YYYY-MM-DD", o new Date() interpreta como UTC
     // e a conversão para o fuso local pode deslocar o dia (ex: UTC-4 → véspera).
     // Para evitar isso, montamos a data localmente a partir dos componentes.
@@ -9,21 +11,14 @@ export function formatDate(dateStr: string): string {
     const date = match
         ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
         : new Date(dateStr);
+
+    if (isNaN(date.getTime())) return "";
+
     return date.toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric"
     });
-}
-
-/**
- * Cria uma Date local a partir de uma string ISO (YYYY-MM-DD),
- * evitando o deslocamento de fuso horário do parsing UTC.
- */
-export function parseDateOnly(dateStr: string): Date {
-    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
-    if (!match) return new Date(dateStr);
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
 /**

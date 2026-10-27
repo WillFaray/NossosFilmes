@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { History } from "lucide-react";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { HistoryTabs } from "@/components/history/HistoryTabs";
@@ -13,14 +14,19 @@ export default function HistoryPage() {
 
     const [user1, user2] = users;
 
-    const entries = [...reviews]
-        .sort((a, b) => new Date(b.dateWatched).getTime() - new Date(a.dateWatched).getTime())
-        .map((review) => {
-            const movie = movies.find((m) => m.id === review.movieId);
-            const recommender = users.find((u) => u.id === review.recommendedBy) ?? user1;
-            return movie ? { review, movie, recommender } : null;
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+    const entries = useMemo(() => {
+        const movieMap = new Map(movies.map((m) => [m.id, m]));
+        const userMap = new Map(users.map((u) => [u.id, u]));
+
+        return [...reviews]
+            .sort((a, b) => b.dateWatched.localeCompare(a.dateWatched))
+            .map((review) => {
+                const movie = movieMap.get(review.movieId);
+                const recommender = userMap.get(review.recommendedBy) ?? user1;
+                return movie ? { review, movie, recommender } : null;
+            })
+            .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+    }, [reviews, movies, users, user1]);
 
     const totalMovies = reviews.length;
 

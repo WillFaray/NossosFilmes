@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Plus, Search } from "lucide-react";
 import Image from "next/image";
 import type { Movie } from "@/types";
@@ -20,7 +20,7 @@ export function WatchlistSearch() {
     const addedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const requestIdRef = useRef(0);
 
-    const watchlistIds = new Set(watchlist.map((m) => m.id));
+    const watchlistIds = useMemo(() => new Set(watchlist.map((m) => m.id)), [watchlist]);
 
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);

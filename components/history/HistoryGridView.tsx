@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -20,6 +20,11 @@ interface HistoryGridViewProps {
 export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps) {
     const { users, updateEntry, deleteEntry } = useReviews();
     const [selectedEntry, setSelectedEntry] = useState<HistoryGridViewProps["entries"][number] | null>(null);
+
+    const activeEntry = useMemo(() => {
+        if (!selectedEntry) return null;
+        return entries.find((e) => e.review.id === selectedEntry.review.id) ?? selectedEntry;
+    }, [entries, selectedEntry]);
 
 
     return (
@@ -56,9 +61,9 @@ export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps)
 
             {/* Modal de detalhes */}
             <ReviewDetailModal
-                open={Boolean(selectedEntry)}
+                open={Boolean(activeEntry)}
                 onClose={() => setSelectedEntry(null)}
-                entry={selectedEntry}
+                entry={activeEntry}
                 user1={user1}
                 user2={user2}
                 users={users}

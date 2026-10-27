@@ -181,6 +181,7 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
             {/* Modal de edição */}
             {entry && (
                 <EditReviewModal
+                    key={entry.review.id}
                     open={editOpen}
                     onClose={() => setEditOpen(false)}
                     review={entry.review}

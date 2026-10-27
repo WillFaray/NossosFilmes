@@ -23,10 +23,5 @@ export function SetupRedirect({ userCount, children }: SetupRedirectProps) {
         }
     }, [needsSetup, pathname, router]);
 
-    // Durante o setup (sem 2 usuários), não renderiza o AppShell
-    if (needsSetup) {
-        return <>{children}</>;
-    }
-
     return <>{children}</>;
 }

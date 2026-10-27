@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Movie, Review, User } from "@/types";
 import type { DbMovieReview, DbUser, DbWatchlistItem } from "@/lib/actions";
 import {
@@ -107,9 +107,20 @@ export function ReviewProvider({
         );
     }, [initialWatchlist]);
 
+    const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const reportError = useCallback((message: string) => {
         setPersistError(message);
-        window.setTimeout(() => setPersistError((current) => (current === message ? null : current)), 5000);
+        if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+        errorTimeoutRef.current = setTimeout(() => {
+            setPersistError((current) => (current === message ? null : current));
+        }, 5000);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+        };
     }, []);
 
     // Filmes são derivados das reviews + dados de filme conhecidos
@@ -234,21 +245,32 @@ export function ReviewProvider({
     }, [reportError]);
 
 
+    const contextValue = useMemo<ReviewProviderValue>(() => ({
+        users,
+        movies,
+        reviews,
+        watchlist,
+        updateUser: updateUserHandler,
+        addEntry,
+        updateEntry: updateEntryHandler,
+        deleteEntry: deleteEntryHandler,
+        addToWatchlist: addToWatchlistHandler,
+        removeFromWatchlist: removeFromWatchlistHandler
+    }), [
+        users,
+        movies,
+        reviews,
+        watchlist,
+        updateUserHandler,
+        addEntry,
+        updateEntryHandler,
+        deleteEntryHandler,
+        addToWatchlistHandler,
+        removeFromWatchlistHandler
+    ]);
+
     return (
-        <ReviewContext.Provider
-            value={{
-                users,
-                movies,
-                reviews,
-                watchlist,
-                updateUser: updateUserHandler,
-                addEntry,
-                updateEntry: updateEntryHandler,
-                deleteEntry: deleteEntryHandler,
-                addToWatchlist: addToWatchlistHandler,
-                removeFromWatchlist: removeFromWatchlistHandler
-            }}
-        >
+        <ReviewContext.Provider value={contextValue}>
             {children}
             {/* Erros globais de persistência */}
             <Toast
