@@ -21,6 +21,7 @@ export interface EntryInput {
     ratingUser2: number;
     textReview: string;
     recommendedBy: string;
+    platform?: string;
 }
 
 interface ReviewProviderValue {
@@ -157,6 +158,7 @@ export function ReviewProvider({
                 ratingUser2: entry.ratingUser2,
                 textReview: entry.textReview,
                 genres: entry.movie.genres,
+                platform: entry.platform,
                 recommendedById: entry.recommendedBy
             });
 
@@ -208,6 +210,7 @@ export function ReviewProvider({
                 ratingUser2: entry.ratingUser2,
                 textReview: entry.textReview,
                 genres: entry.movie.genres,
+                platform: entry.platform,
                 recommendedById: entry.recommendedBy
             });
 

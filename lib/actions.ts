@@ -13,6 +13,7 @@ export interface MovieReviewInput {
     textReview: string;
     genres: string[];
     recommendedById: string;
+    platform?: string;
 }
 
 export interface DbUser {
@@ -32,6 +33,7 @@ export interface DbMovieReview {
     textReview: string;
     genres: string[];
     recommendedById: string;
+    platform?: string | null;
 }
 
 export interface DbWatchlistItem {
@@ -131,6 +133,11 @@ function validateReviewInput(input: MovieReviewInput): void {
 
     validateGenres(input.genres);
 
+    if (input.platform !== undefined && input.platform !== null) {
+        assert(typeof input.platform === "string", "Plataforma inválida.");
+        assert(input.platform.length <= 100, "Nome da plataforma/local excede 100 caracteres.");
+    }
+
     assert(isNonEmptyString(input.recommendedById), "Indicador inválido.");
 }
 
@@ -151,10 +158,12 @@ function serializeReview(review: {
     textReview: string;
     genres: string;
     recommendedById: string;
+    platform?: string | null;
 }): DbMovieReview {
     return {
         ...review,
-        genres: JSON.parse(review.genres || "[]") as string[]
+        genres: JSON.parse(review.genres || "[]") as string[],
+        platform: review.platform ?? null
     };
 }
 
@@ -334,6 +343,7 @@ export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieRe
                 ratingUser2: input.ratingUser2,
                 textReview: input.textReview.trim(),
                 genres: JSON.stringify(input.genres),
+                platform: input.platform?.trim() || null,
                 recommendedById: input.recommendedById
             }
         })
@@ -366,6 +376,7 @@ export async function updateMovieReview(
             ratingUser2: input.ratingUser2,
             textReview: input.textReview.trim(),
             genres: JSON.stringify(input.genres),
+            platform: input.platform?.trim() || null,
             recommendedById: input.recommendedById
         }
     });
@@ -484,6 +495,11 @@ function validateImportData(raw: unknown): asserts raw is ExportData {
 
         validateGenres(review.genres);
 
+        if (review.platform !== undefined && review.platform !== null) {
+            assert(typeof review.platform === "string", "Plataforma inválida.");
+            assert(review.platform.length <= 100, "Plataforma excede 100 caracteres.");
+        }
+
         assert(
             isNonEmptyString(review.recommendedById) && userIds.has(review.recommendedById),
             `Registro "${review.title}" referencia um usuário inexistente.`
@@ -576,6 +592,7 @@ export async function importData(raw: unknown): Promise<{ users: number; reviews
                     ratingUser2: review.ratingUser2,
                     textReview: review.textReview,
                     genres: JSON.stringify(review.genres ?? []),
+                    platform: review.platform?.trim() || null,
                     recommendedById: review.recommendedById
                 }
             })

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { PlusCircle } from "lucide-react";
 import { AddEntryForm } from "@/components/add-entry/AddEntryForm";
 
@@ -17,7 +18,9 @@ export default function AddEntryPage() {
                 </p>
             </div>
 
-            <AddEntryForm />
+            <Suspense fallback={<div className="h-96 rounded-2xl bg-white/50 p-6 animate-pulse dark:bg-card-dark" />}>
+                <AddEntryForm />
+            </Suspense>
         </div>
     );
 }

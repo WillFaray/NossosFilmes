@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Dices, RotateCcw, Sparkles } from "lucide-react";
+import { Dices, PlusCircle, RotateCcw, Sparkles } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import type { Movie } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
@@ -253,18 +254,28 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                                 </motion.button>
                             )}
                             {result && (
-                                <motion.button
-                                    whileHover={{ scale: 1.03 }}
-                                    whileTap={{ scale: 0.97 }}
-                                    onClick={() => {
-                                        setResult(null);
-                                        setCurrentIndex(0);
-                                    }}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-gold-400/10 px-6 py-2.5 text-sm font-semibold text-gold-600 transition-colors hover:bg-gold-400/20 dark:text-gold-300"
-                                >
-                                    <RotateCcw size={16} />
-                                    Girar novamente
-                                </motion.button>
+                                <>
+                                    <Link
+                                        href={`/adicionar?tmdbId=${result.id}`}
+                                        onClick={onClose}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50"
+                                    >
+                                        <PlusCircle size={16} />
+                                        Registrar sessão deste filme
+                                    </Link>
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        onClick={() => {
+                                            setResult(null);
+                                            setCurrentIndex(0);
+                                        }}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-gold-400/10 px-5 py-2.5 text-sm font-semibold text-gold-600 transition-colors hover:bg-gold-400/20 dark:text-gold-300"
+                                    >
+                                        <RotateCcw size={16} />
+                                        Girar novamente
+                                    </motion.button>
+                                </>
                             )}
                         </div>
                     </>

@@ -30,6 +30,7 @@ export function toAppReview(dbReview: DbMovieReview): Review {
         ratingUser1: dbReview.ratingUser1,
         ratingUser2: dbReview.ratingUser2,
         textReview: dbReview.textReview,
-        recommendedBy: dbReview.recommendedById
+        recommendedBy: dbReview.recommendedById,
+        platform: dbReview.platform ?? undefined
     };
 }

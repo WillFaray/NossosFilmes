@@ -35,6 +35,7 @@ model MovieReview {
     ratingUser2    Float
     textReview     String
     genres         String
+    platform       String?
     recommendedById String
     recommendedBy  User   @relation("RecommendedReviews", fields: [recommendedById], references: [id])
 

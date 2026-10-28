@@ -1,12 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Tv } from "lucide-react";
 import type { Movie, Review, User } from "@/types";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import { StarRatingInput } from "@/components/ui/StarRatingInput";
 import { cn } from "@/lib/cn";
+import type { EntryInput } from "@/components/reviews/ReviewProvider";
+
+const PLATFORM_OPTIONS = [
+    "Cinema",
+    "Netflix",
+    "Max",
+    "Prime Video",
+    "Disney+",
+    "Apple TV+",
+    "Mubi",
+    "Casa"
+];
 
 interface EditReviewModalProps {
     open: boolean;
@@ -14,14 +26,7 @@ interface EditReviewModalProps {
     review: Review;
     movie: Movie;
     users: User[];
-    onSave: (id: string, entry: {
-        movie: Movie;
-        dateWatched: string;
-        ratingUser1: number;
-        ratingUser2: number;
-        textReview: string;
-        recommendedBy: string;
-    }) => Promise<void>;
+    onSave: (id: string, entry: EntryInput) => Promise<void>;
 }
 
 export function EditReviewModal({ open, onClose, review, movie, users, onSave }: EditReviewModalProps) {
@@ -29,6 +34,7 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
     const [ratingUser1, setRatingUser1] = useState(review.ratingUser1);
     const [ratingUser2, setRatingUser2] = useState(review.ratingUser2);
     const [textReview, setTextReview] = useState(review.textReview);
+    const [platform, setPlatform] = useState(review.platform ?? "");
     const [recommendedBy, setRecommendedBy] = useState(review.recommendedBy);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -55,13 +61,13 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
         setError(null);
 
         try {
-            // Aguarda a persistência concluir antes de fechar o modal
             await onSave(review.id, {
                 movie,
                 dateWatched,
                 ratingUser1,
                 ratingUser2,
                 textReview: textReview.trim(),
+                platform: platform.trim() || undefined,
                 recommendedBy
             });
             onClose();
@@ -99,13 +105,62 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                         />
                     </div>
 
-                    {/* Notas dos usuários */}
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    {/* Onde assistiram? (Opcional) */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <Tv size={15} className="text-gray-400" />
+                                Onde assistiram? <span className="text-xs font-normal text-gray-400 dark:text-gray-500">(opcional)</span>
+                            </label>
+                            {platform && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPlatform("")}
+                                    className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                >
+                                    Limpar
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {PLATFORM_OPTIONS.map((item) => {
+                                const isSelected = platform === item;
+                                return (
+                                    <button
+                                        key={item}
+                                        type="button"
+                                        disabled={saving}
+                                        onClick={() => setPlatform(isSelected ? "" : item)}
+                                        className={cn(
+                                            "rounded-xl px-2.5 py-1 text-xs font-medium transition-all",
+                                            isSelected
+                                                ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600"
+                                                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                        )}
+                                    >
+                                        {item}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Ou digite outro local/streaming..."
+                            value={PLATFORM_OPTIONS.includes(platform) ? "" : platform}
+                            onChange={(e) => setPlatform(e.target.value)}
+                            disabled={saving}
+                            maxLength={50}
+                            className="mt-1 w-full rounded-xl border-0 bg-white px-3.5 py-2 text-xs text-gray-900 shadow-sm ring-1 ring-gray-200 transition placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
+                        />
+                    </div>
+
+                    {/* Notas dos dois perfis */}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-                            <div className="mb-3 flex items-center gap-2">
-                                <Avatar src={users[0]?.avatar} name={users[0]?.name ?? "U1"} size="sm" />
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    {users[0]?.name ?? "Usuário 1"}
+                            <div className="mb-2 flex items-center gap-2">
+                                <Avatar src={users[0]?.avatar} name={users[0]?.name ?? "Usuário 1"} size="sm" />
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                                    {users[0]?.name}
                                 </span>
                             </div>
                             <StarRatingInput
@@ -115,10 +170,10 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                             />
                         </div>
                         <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-                            <div className="mb-3 flex items-center gap-2">
-                                <Avatar src={users[1]?.avatar} name={users[1]?.name ?? "U2"} size="sm" />
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    {users[1]?.name ?? "Usuário 2"}
+                            <div className="mb-2 flex items-center gap-2">
+                                <Avatar src={users[1]?.avatar} name={users[1]?.name ?? "Usuário 2"} size="sm" />
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                                    {users[1]?.name}
                                 </span>
                             </div>
                             <StarRatingInput
@@ -129,7 +184,7 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                         </div>
                     </div>
 
-                    {/* Texto de avaliação */}
+                    {/* Avaliação em texto */}
                     <div>
                         <label htmlFor="editTextReview" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
                             Avaliação curta
@@ -138,11 +193,10 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                             id="editTextReview"
                             value={textReview}
                             onChange={(e) => setTextReview(e.target.value)}
+                            disabled={saving}
                             rows={3}
                             maxLength={280}
-                            placeholder="O que acharam do filme?"
-                            disabled={saving}
-                            className="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
+                            className="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
                         />
                         <p className="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
                             {textReview.length}/280

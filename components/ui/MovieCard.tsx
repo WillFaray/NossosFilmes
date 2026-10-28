@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check, Loader2, Trash2, X } from "lucide-react";
+import { Check, Loader2, PlusCircle, Trash2, X } from "lucide-react";
 import type { Movie } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 
@@ -105,6 +106,18 @@ export function MovieCard({ movie, className = "", index = 0, onRemove }: MovieC
                             </>
                         )}
                     </div>
+                )}
+
+                {/* Botão registrar sessão */}
+                {!confirming && (
+                    <Link
+                        href={`/adicionar?tmdbId=${movie.id}`}
+                        className="absolute left-2 top-2 z-[5] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-indigo-600 group-hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                        aria-label={`Registrar sessão de ${movie.title}`}
+                        title="Registrar que assistimos"
+                    >
+                        <PlusCircle size={15} />
+                    </Link>
                 )}
 
                 {/* Botão remover (opcional) */}

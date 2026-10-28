@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, MoreVertical } from "lucide-react";
+import { CalendarDays, MoreVertical, Tv } from "lucide-react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -62,9 +62,17 @@ export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps)
                                 <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {movie.title}
                                 </h3>
-                                <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                                    <CalendarDays size={12} />
-                                    {formatDate(review.dateWatched)}
+                                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="flex items-center gap-1">
+                                        <CalendarDays size={12} />
+                                        {formatDate(review.dateWatched)}
+                                    </span>
+                                    {review.platform && (
+                                        <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-800/80 dark:text-gray-300">
+                                            <Tv size={10} />
+                                            {review.platform}
+                                        </span>
+                                    )}
                                 </p>
                                 <div className="mt-1.5 flex items-center gap-1.5">
                                     <Avatar src={recommender.avatar} name={recommender.name} size="sm" className="h-5 w-5 text-[8px]" />

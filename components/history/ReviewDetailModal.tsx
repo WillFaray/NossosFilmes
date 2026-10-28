@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Loader2, Pencil, Trash2, UserCheck } from "lucide-react";
+import { CalendarDays, Loader2, Pencil, Trash2, Tv, UserCheck } from "lucide-react";
 import Image from "next/image";
 import type { Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Modal } from "@/components/ui/Modal";
 import { StarRating } from "@/components/ui/StarRating";
 import { EditReviewModal } from "./EditReviewModal";
+import type { EntryInput } from "@/components/reviews/ReviewProvider";
 
 interface ReviewDetailModalProps {
     open: boolean;
@@ -21,14 +22,7 @@ interface ReviewDetailModalProps {
     user1: User;
     user2: User;
     users: User[];
-    onEdit: (id: string, entry: {
-        movie: Movie;
-        dateWatched: string;
-        ratingUser1: number;
-        ratingUser2: number;
-        textReview: string;
-        recommendedBy: string;
-    }) => Promise<void>;
+    onEdit: (id: string, entry: EntryInput) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
 }
 
@@ -82,9 +76,17 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                 {entry.movie.genres.join(" · ")}
                             </p>
 
-                            <div className="mt-3 flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
-                                <CalendarDays size={14} className="text-gray-400" />
-                                Assistido em {formatDate(entry.review.dateWatched)}
+                            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                                <span className="inline-flex items-center gap-1.5">
+                                    <CalendarDays size={14} className="text-gray-400" />
+                                    Assistido em {formatDate(entry.review.dateWatched)}
+                                </span>
+                                {entry.review.platform && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                                        <Tv size={12} />
+                                        {entry.review.platform}
+                                    </span>
+                                )}
                             </div>
 
                             <div className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">

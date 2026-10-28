@@ -21,4 +21,5 @@ export interface Review {
     ratingUser2: number;
     textReview: string;
     recommendedBy: string;
+    platform?: string;
 }
