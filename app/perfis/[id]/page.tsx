@@ -1,7 +1,7 @@
 "use client";
 
 import { notFound } from "next/navigation";
-import { ArrowLeft, Award, ChevronRight, Heart, Pencil, Star, Target, TrendingDown } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight, Heart, Pencil, Star, Tag, Target, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useMemo, useState } from "react";
@@ -49,7 +49,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         recommendedReviews,
         bestRecommendation,
         allRecommendations,
-        hitRate
+        hitRate,
+        topGenres
     } = useMemo(() => {
         // Monta lista de reviews com dados do filme
         const rated = reviews
@@ -119,6 +120,24 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                 recReviews.length
                 : 0;
 
+        // Gêneros mais bem avaliados por este usuário
+        const genreMap = new Map<string, { sum: number; count: number }>();
+        rated.forEach(({ review, movie }) => {
+            const rating = review[selfKey];
+            (movie.genres ?? []).forEach((g) => {
+                const current = genreMap.get(g) ?? { sum: 0, count: 0 };
+                genreMap.set(g, { sum: current.sum + rating, count: current.count + 1 });
+            });
+        });
+
+        const genres = Array.from(genreMap.entries())
+            .map(([genre, { sum, count }]) => ({
+                genre,
+                avgRating: sum / count,
+                count
+            }))
+            .sort((a, b) => b.avgRating - a.avgRating || b.count - a.count);
+
         return {
             ratedEntries: rated,
             avgRating: avg,
@@ -129,7 +148,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             recommendedReviews: recReviews,
             bestRecommendation: bestRec,
             allRecommendations: allRecs,
-            hitRate: rate
+            hitRate: rate,
+            topGenres: genres
         };
     }, [reviews, movies, selfKey, otherKey, user]);
 
@@ -359,6 +379,51 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                             </p>
                         </div>
                     </div>
+                </section>
+
+                {/* Gêneros Mais Bem Avaliados */}
+                <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400">
+                            <Tag size={16} />
+                        </span>
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                            Gêneros Mais Bem Avaliados
+                        </h2>
+                    </div>
+                    {topGenres.length > 0 ? (
+                        <div className="mt-4 space-y-3">
+                            {topGenres.slice(0, 5).map(({ genre, avgRating, count }) => (
+                                <div key={genre} className="space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                            {genre}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 dark:text-gray-500">
+                                                {count} {count === 1 ? "filme" : "filmes"}
+                                            </span>
+                                            <span className="font-bold text-gray-900 dark:text-white">
+                                                {avgRating.toFixed(1)}★
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                        <div
+                                            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 transition-all duration-300"
+                                            style={{
+                                                width: `${Math.min(100, Math.max(0, (avgRating / 5) * 100))}%`
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">
+                            Nenhum gênero avaliado ainda.
+                        </p>
+                    )}
                 </section>
             </div>
 
