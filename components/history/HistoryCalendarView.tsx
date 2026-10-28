@@ -1,25 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import Image from "next/image";
-import type { Movie, Review, User } from "@/types";
+import type { HistoryEntry, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { ReviewDetailModal } from "./ReviewDetailModal";
 
-
 interface HistoryCalendarViewProps {
-    entries: {
-        review: Review;
-        movie: Movie;
-        recommender: User;
-    }[];
+    entries: HistoryEntry[];
     user1: User;
     user2: User;
 }
 
-type CalendarEntry = HistoryCalendarViewProps["entries"][number];
+type CalendarEntry = HistoryEntry;
 
 interface DayEntry {
     date: Date;
@@ -175,6 +170,14 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                                                     ) : (
                                                         <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-gray-400">
                                                             {entry.movie.title}
+                                                        </span>
+                                                    )}
+                                                    {entry.isRewatch && (
+                                                        <span
+                                                            className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-white shadow-sm"
+                                                            title={`Re-watch (${entry.sessionNumber}ª vez)`}
+                                                        >
+                                                            <RotateCcw size={8} />
                                                         </span>
                                                     )}
                                                     <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/80 to-transparent px-1 pb-1 pt-4 text-left text-[9px] font-medium leading-tight text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">

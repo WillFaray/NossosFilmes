@@ -1,0 +1,83 @@
+[33mcommit 65759bdddb9213ef55353a6bfffd692add19dd52[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: WillFaray <faraysilvajunior@gmail.com>
+Date:   Wed Oct 28 08:00:51 2026 -0400
+
+    feat: melhorias em adicionar registros
+
+[33mcommit 15e7ff0aeb6388cd96ec07c49ce183722155a1c8[m
+Author: WillFaray <faraysilvajunior@gmail.com>
+Date:   Tue Oct 27 13:15:46 2026 -0400
+
+    refactor: otimizar performance com memoizacao, remover dead code e correcoes de data
+
+[33mcommit 365b6a81a37932516f94ce74a078b3c9dd00feed[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Sat Aug 22 17:05:19 2026 -0400
+
+    fix: componente dropdown para visual mais consistente, refazer possibilidade de 2 sessoes do mesmo filme
+
+[33mcommit 3c41ddc8b10f69e45505886813dbec3f1c982bff[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Sat Aug 22 16:12:41 2026 -0400
+
+    add: configuracoes: backup, import e export, mais filtros e correcoes de fluxos
+
+[33mcommit 672ad2a1d1c9561fe676185496f64facba512479[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Mon Aug 17 23:36:58 2026 -0400
+
+    fix: data sendo mostrada incorretamente, melhor UI no Diário
+
+[33mcommit 6a995f3d8ea312867d3acc65f6206bfb22400aca[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Mon Aug 17 23:25:59 2026 -0400
+
+    feat: add possibilidade de editar e remover reviews
+
+[33mcommit e8f4207be4562cc8f559f41e7f231358545c6cda[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Mon Aug 17 15:21:20 2026 -0400
+
+    feat: melhorar sistema de notas, permitindo meia estrela
+
+[33mcommit 0609b47d3d84913a1c1ffbb30d3fa77adbc1cab0[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Mon Aug 17 00:29:46 2026 -0400
+
+    chore: remove banco de dados da raiz do repositorio
+
+[33mcommit e76f0cec6ea3059d15959b75b8b3d878d62a4b75[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Mon Aug 17 00:09:35 2026 -0400
+
+    chore: limpa cache do git e remove arquivos sensiveis
+
+[33mcommit 97ae107635f20745f8642da180ff1c657dd90414[m
+Author: William Faray <110647141+WillFaray@users.noreply.github.com>
+Date:   Sun Aug 16 23:54:30 2026 -0400
+
+    Add MIT License to the project
+
+[33mcommit 7fab183e23edbcdaea3b7aec7cf80ea6fd819287[m
+Author: William Faray <110647141+WillFaray@users.noreply.github.com>
+Date:   Sun Aug 16 23:48:40 2026 -0400
+
+    Update README.md
+
+[33mcommit 2aa10ed0aa3cb44a80eae754f0f4c4daf0cf4c9b[m
+Author: William Faray <110647141+WillFaray@users.noreply.github.com>
+Date:   Sun Aug 16 23:46:13 2026 -0400
+
+    revisar readme, melhores descrições e imagens do projeto
+
+[33mcommit c89f6779fa07775997a1c03717ea56f2b1f8886a[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Sun Aug 16 22:55:31 2026 -0400
+
+    feat: add migração para sqlite com prisma, setup de perfis e redesign
+
+[33mcommit b0050d8832a51f2cbc9112e7e8a6ea8747e1f68f[m
+Author: William Faray <faraysilvajunior@gmail.com>
+Date:   Sun Aug 16 19:52:16 2026 -0400
+
+    feat: add app completo, com historico, adicionar registros, e tudo masi

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Loader2, Pencil, Trash2, Tv, UserCheck } from "lucide-react";
+import { CalendarDays, Clock, Loader2, Pencil, RotateCcw, Trash2, Tv, UserCheck } from "lucide-react";
 import Image from "next/image";
-import type { Movie, Review, User } from "@/types";
+import type { HistoryEntry, Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 import { Modal } from "@/components/ui/Modal";
@@ -14,11 +14,7 @@ import type { EntryInput } from "@/components/reviews/ReviewProvider";
 interface ReviewDetailModalProps {
     open: boolean;
     onClose: () => void;
-    entry: {
-        review: Review;
-        movie: Movie;
-        recommender: User;
-    } | null;
+    entry: HistoryEntry | null;
     user1: User;
     user2: User;
     users: User[];
@@ -76,11 +72,23 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                 {entry.movie.genres.join(" · ")}
                             </p>
 
-                            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                            <div className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-gray-600 dark:text-gray-300">
                                 <span className="inline-flex items-center gap-1.5">
                                     <CalendarDays size={14} className="text-gray-400" />
                                     Assistido em {formatDate(entry.review.dateWatched)}
                                 </span>
+                                {entry.isRewatch && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-500/10 dark:text-purple-300">
+                                        <RotateCcw size={12} />
+                                        {entry.sessionNumber}ª sessão ({entry.totalSessions} no total)
+                                    </span>
+                                )}
+                                {entry.movie.runtime && entry.movie.runtime > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <Clock size={12} />
+                                        {entry.movie.runtime} min ({Math.floor(entry.movie.runtime / 60)}h {entry.movie.runtime % 60}m)
+                                    </span>
+                                )}
                                 {entry.review.platform && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
                                         <Tv size={12} />

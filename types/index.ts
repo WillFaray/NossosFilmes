@@ -11,6 +11,7 @@ export interface Movie {
     release_date: string;
     genres: string[];
     overview?: string;
+    runtime?: number;
 }
 
 export interface Review {
@@ -22,4 +23,13 @@ export interface Review {
     textReview: string;
     recommendedBy: string;
     platform?: string;
+}
+
+export interface HistoryEntry {
+    review: Review;
+    movie: Movie;
+    recommender: User;
+    sessionNumber: number;
+    totalSessions: number;
+    isRewatch: boolean;
 }

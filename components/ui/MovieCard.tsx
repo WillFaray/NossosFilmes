@@ -153,6 +153,17 @@ export function MovieCard({ movie, className = "", index = 0, onRemove }: MovieC
                         </span>
                     ))}
                 </div>
+
+                {/* Ação rápida para registrar que já assistiram */}
+                <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2.5 dark:border-white/5">
+                    <Link
+                        href={`/adicionar?tmdbId=${movie.id}`}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                    >
+                        <Check size={14} />
+                        Já assistimos!
+                    </Link>
+                </div>
             </div>
         </motion.article>
     );

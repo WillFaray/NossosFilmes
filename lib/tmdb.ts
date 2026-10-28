@@ -12,6 +12,7 @@ interface TMDBMovieResult {
     overview?: string;
     genre_ids?: number[];
     genres?: { id: number; name: string }[];
+    runtime?: number;
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -76,7 +77,8 @@ function mapMovie(movie: TMDBMovieResult): Movie {
         poster_path: movie.poster_path ?? "",
         release_date: movie.release_date || "",
         genres,
-        overview: movie.overview || undefined
+        overview: movie.overview || undefined,
+        runtime: typeof movie.runtime === "number" && movie.runtime > 0 ? movie.runtime : undefined
     };
 }
 

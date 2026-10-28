@@ -1,24 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Dices, PlusCircle, RotateCcw, Sparkles } from "lucide-react";
+import { Dices, Filter, PlusCircle, RotateCcw, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Movie } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
+import { cn } from "@/lib/cn";
 
 interface RouletteModalProps {
     open: boolean;
     onClose: () => void;
     movies: Movie[];
+    initialGenre?: string;
 }
 
-export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
+export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: RouletteModalProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [result, setResult] = useState<Movie | null>(null);
     const [rolling, setRolling] = useState(false);
+    const [selectedGenre, setSelectedGenre] = useState<string>(initialGenre);
     const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
     const clearTimers = () => {
@@ -26,32 +29,52 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
         timersRef.current = [];
     };
 
+    // Gêneros disponíveis nos filmes da watchlist
+    const availableGenres = useMemo(() => {
+        const set = new Set<string>();
+        movies.forEach((m) => (m.genres ?? []).forEach((g) => set.add(g)));
+        return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }, [movies]);
+
+    // Filmes elegíveis conforme o filtro de gênero
+    const eligibleMovies = useMemo(() => {
+        if (selectedGenre === "all") return movies;
+        return movies.filter((m) => (m.genres ?? []).includes(selectedGenre));
+    }, [movies, selectedGenre]);
+
     // Reinicia o estado quando abre
     useEffect(() => {
         if (open) {
             setCurrentIndex(0);
             setResult(null);
             setRolling(false);
+            setSelectedGenre(initialGenre);
         } else {
             clearTimers();
         }
 
         return () => clearTimers();
-    }, [open]);
+    }, [open, initialGenre]);
+
+    // Ajusta o índice quando o filtro muda
+    useEffect(() => {
+        setCurrentIndex(0);
+        setResult(null);
+    }, [selectedGenre]);
 
     const spin = () => {
-        if (movies.length === 0 || rolling) return;
+        if (eligibleMovies.length === 0 || rolling) return;
 
         setRolling(true);
         setResult(null);
         setCurrentIndex(0);
         clearTimers();
 
-        // Define o filme final (aleatório) e calcula quantas paradas para alcançá-lo
-        const finalIndex = Math.floor(Math.random() * movies.length);
+        // Define o filme final (aleatório) entre os elegíveis
+        const finalIndex = Math.floor(Math.random() * eligibleMovies.length);
 
         // Total de passos para dar sensação de duração (2 a 3 voltas completas)
-        const steps = movies.length * 2 + finalIndex + 1;
+        const steps = eligibleMovies.length * 2 + finalIndex + 1;
 
         const durations: number[] = [];
         // Easing: começa rápido e desacelera gradativamente (de 60ms até 450ms)
@@ -63,13 +86,13 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
         let stepCount = 0;
 
         const tick = () => {
-            const newIndex = (stepCount + 1) % movies.length;
+            const newIndex = (stepCount + 1) % eligibleMovies.length;
             setCurrentIndex(newIndex);
             stepCount += 1;
 
             if (stepCount >= steps) {
                 setCurrentIndex(finalIndex);
-                setResult(movies[finalIndex]);
+                setResult(eligibleMovies[finalIndex]);
                 setRolling(false);
                 return;
             }
@@ -82,8 +105,8 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
         timersRef.current.push(firstTimer);
     };
 
-    const previewMovie = result ?? movies[currentIndex];
-    const hasMovies = movies.length > 0;
+    const previewMovie = result ?? eligibleMovies[currentIndex] ?? eligibleMovies[0];
+    const hasMovies = eligibleMovies.length > 0;
 
     return (
         <Modal open={open} onClose={onClose}>
@@ -105,12 +128,57 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                     </p>
                 </div>
 
-                {!hasMovies ? (
+                {movies.length === 0 ? (
                     <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
                         Adicione filmes à lista de interesse para usar a roleta.
                     </div>
                 ) : (
                     <>
+                        {/* Seletor de Gênero para o sorteio */}
+                        {!result && availableGenres.length > 0 && (
+                            <div className="mt-5 rounded-2xl bg-gray-50 p-3 dark:bg-gray-800/40">
+                                <div className="mb-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    <Filter size={12} />
+                                    <span>Filtrar sorteio por gênero:</span>
+                                </div>
+                                <div className="flex max-h-24 flex-wrap justify-center gap-1.5 overflow-y-auto">
+                                    <button
+                                        type="button"
+                                        disabled={rolling}
+                                        onClick={() => setSelectedGenre("all")}
+                                        className={cn(
+                                            "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                                            selectedGenre === "all"
+                                                ? "bg-indigo-600 text-white shadow-sm"
+                                                : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                        )}
+                                    >
+                                        Todos ({movies.length})
+                                    </button>
+                                    {availableGenres.map((genre) => {
+                                        const count = movies.filter((m) => m.genres.includes(genre)).length;
+                                        const isSelected = selectedGenre === genre;
+                                        return (
+                                            <button
+                                                key={genre}
+                                                type="button"
+                                                disabled={rolling}
+                                                onClick={() => setSelectedGenre(genre)}
+                                                className={cn(
+                                                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                                                    isSelected
+                                                        ? "bg-indigo-600 text-white shadow-sm"
+                                                        : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                                )}
+                                            >
+                                                {genre} ({count})
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Resultado / Prévia */}
                         <div className="mt-6">
                             <AnimatePresence mode="wait">
@@ -169,6 +237,10 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                                             )}
                                         </div>
                                     </motion.div>
+                                ) : !hasMovies ? (
+                                    <div className="rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Nenhum filme de {selectedGenre} na sua lista de interesse.
+                                    </div>
                                 ) : (
                                     <motion.div
                                         key="preview"
@@ -203,18 +275,23 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                                                     : "Gire a roleta para sortear um filme da sua lista!"}
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                                                {rolling ? "" : `${movies.length} ${movies.length === 1 ? "filme" : "filmes"}`}
+                                                {rolling ? "" : `${eligibleMovies.length} ${eligibleMovies.length === 1 ? "filme" : "filmes"}`}
                                             </p>
+                                            {selectedGenre !== "all" && (
+                                                <span className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">
+                                                    Gênero selecionado: {selectedGenre}
+                                                </span>
+                                            )}
                                         </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
 
-                        {/* Vídeo da roleta (prévia rápida dos posters) */}
+                        {/* Prévia rápida dos posters enquanto gira */}
                         {rolling && (
                             <div className="mt-4 flex justify-center gap-2 overflow-hidden">
-                                {movies.slice(0, 6).map((movie, i) => (
+                                {eligibleMovies.slice(0, 6).map((movie, i) => (
                                     <motion.div
                                         key={movie.id}
                                         animate={i === currentIndex % 6 ? { scale: 1.15, opacity: 1 } : { scale: 0.85, opacity: 0.4 }}
@@ -240,13 +317,13 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                         )}
 
                         {/* Ações */}
-                        <div className="mt-6 flex justify-center gap-3">
+                        <div className="mt-6 flex flex-wrap justify-center gap-3">
                             {!result && (
                                 <motion.button
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
                                     onClick={spin}
-                                    disabled={rolling}
+                                    disabled={rolling || !hasMovies}
                                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <Dices size={16} className={rolling ? "animate-spin" : ""} />
@@ -261,7 +338,7 @@ export function RouletteModal({ open, onClose, movies }: RouletteModalProps) {
                                         className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50"
                                     >
                                         <PlusCircle size={16} />
-                                        Registrar sessão deste filme
+                                        Assistir agora! (Registrar sessão)
                                     </Link>
                                     <motion.button
                                         whileHover={{ scale: 1.03 }}
