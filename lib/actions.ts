@@ -631,3 +631,140 @@ export async function backupDatabase(): Promise<string> {
         await fs.unlink(target).catch(() => undefined);
     }
 }
+
+/**
+ * Mescla dados de um backup JSON com os dados existentes no banco.
+ * Mantém os dados atuais e adiciona apenas filmes e avaliações que ainda não existem.
+ */
+export async function mergeData(
+    raw: unknown
+): Promise<{ addedReviews: number; addedWatchlist: number }> {
+    let serialized: string;
+    try {
+        serialized = JSON.stringify(raw);
+    } catch {
+        throw new Error("Arquivo de importação inválido.");
+    }
+    assert(
+        Buffer.byteLength(serialized, "utf8") <= MAX_IMPORT_BYTES,
+        "Arquivo de importação muito grande (máximo de 10 MB)."
+    );
+
+    validateImportData(raw);
+
+    const [currentUsers, currentReviews, currentWatchlist] = await Promise.all([
+        prisma.user.findMany(),
+        prisma.movieReview.findMany(),
+        prisma.watchlistItem.findMany()
+    ]);
+
+    assert(
+        currentUsers.length === 2,
+        "A aplicação deve ter dois usuários configurados para mesclar dados."
+    );
+
+    // Mapas para detecção de duplicados
+    const existingReviewKeys = new Set(
+        currentReviews.map((r) => `${r.tmdbId}_${r.dateWatched}`)
+    );
+    const existingWatchlistTmdbIds = new Set(currentWatchlist.map((w) => w.tmdbId));
+    const allWatchedTmdbIds = new Set(currentReviews.map((r) => r.tmdbId));
+
+    // Determina mapeamento de recommendedById para os usuários atuais
+    const importUser1Id = raw.users[0]?.id;
+    const defaultRecommenderId = currentUsers[0].id;
+    const secondRecommenderId = currentUsers[1].id;
+
+    // Filtra reviews não duplicadas
+    const newReviews = raw.reviews.filter(
+        (r) => !existingReviewKeys.has(`${r.tmdbId}_${r.dateWatched}`)
+    );
+
+    // Filtra watchlist não duplicada (e que ainda não tenha sido assistida)
+    const newWatchlist = raw.watchlist.filter(
+        (w) =>
+            !existingWatchlistTmdbIds.has(w.tmdbId) &&
+            !allWatchedTmdbIds.has(w.tmdbId)
+    );
+
+    await prisma.$transaction([
+        ...newReviews.map((review) => {
+            const recommenderId =
+                review.recommendedById === importUser1Id
+                    ? defaultRecommenderId
+                    : secondRecommenderId;
+
+            return prisma.movieReview.create({
+                data: {
+                    id: review.id,
+                    tmdbId: review.tmdbId,
+                    title: review.title,
+                    posterPath: review.posterPath,
+                    dateWatched: review.dateWatched,
+                    ratingUser1: review.ratingUser1,
+                    ratingUser2: review.ratingUser2,
+                    textReview: review.textReview,
+                    genres: JSON.stringify(review.genres ?? []),
+                    platform: review.platform?.trim() || null,
+                    recommendedById: recommenderId
+                }
+            });
+        }),
+        ...newWatchlist.map((item) =>
+            prisma.watchlistItem.create({
+                data: {
+                    id: item.id,
+                    tmdbId: item.tmdbId,
+                    title: item.title,
+                    posterPath: item.posterPath,
+                    genres: JSON.stringify(item.genres ?? []),
+                    addedById: defaultRecommenderId
+                }
+            })
+        )
+    ]);
+
+    revalidatePath("/");
+    revalidatePath("/lista-de-interesse");
+    revalidatePath("/perfis");
+    revalidatePath("/configuracoes");
+
+    return {
+        addedReviews: newReviews.length,
+        addedWatchlist: newWatchlist.length
+    };
+}
+
+/**
+ * Remove todos os dados do banco (reviews, watchlist e usuários),
+ * permitindo recomeçar o onboarding do zero.
+ */
+export async function resetDatabase(): Promise<void> {
+    await prisma.$transaction([
+        prisma.movieReview.deleteMany(),
+        prisma.watchlistItem.deleteMany(),
+        prisma.user.deleteMany()
+    ]);
+
+    revalidatePath("/");
+    revalidatePath("/lista-de-interesse");
+    revalidatePath("/perfis");
+    revalidatePath("/configuracoes");
+}
+
+/**
+ * Verifica se a chave do TMDB está configurada no ambiente.
+ */
+export async function checkTmdbStatus(): Promise<{ configured: boolean; message: string }> {
+    const key = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+    const token = process.env.TMDB_READ_ACCESS_TOKEN;
+
+    if (key && key !== "sua_chave_tmdb_aqui" && key.trim() !== "") {
+        return { configured: true, message: "Chave TMDB API ativa" };
+    }
+    if (token && token.trim() !== "") {
+        return { configured: true, message: "Bearer token TMDB ativo" };
+    }
+
+    return { configured: false, message: "Chave TMDB não configurada (usando placeholder)" };
+}
