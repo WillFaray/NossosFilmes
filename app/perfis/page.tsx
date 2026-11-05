@@ -10,6 +10,8 @@ import {
     Scale,
     Sparkles,
     Star,
+    Trophy,
+    Tv,
     Users
 } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +20,7 @@ import { useReviews } from "@/components/reviews/ReviewProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { StarRating } from "@/components/ui/StarRating";
 import { getPosterUrl } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import type { Movie, Review, User } from "@/types";
 
 interface HeadToHeadStats {
@@ -169,6 +172,38 @@ export default function ProfilesPage() {
     const bestAgreement = headToHead?.bestAgreement;
     const mostDivergent = headToHead?.mostDivergent;
 
+    // Top 5 Filmes do Casal (maiores médias combinadas)
+    const topCoupleMovies = useMemo(() => {
+        return [...validEntries]
+            .map(({ movie, review }) => {
+                const combinedRating = (review.ratingUser1 + review.ratingUser2) / 2;
+                return {
+                    movie,
+                    review,
+                    combinedRating
+                };
+            })
+            .sort((a, b) => b.combinedRating - a.combinedRating || b.review.dateWatched.localeCompare(a.review.dateWatched))
+            .slice(0, 5);
+    }, [validEntries]);
+
+    // Distribuição de plataformas onde mais assistem
+    const platformStats = useMemo(() => {
+        if (reviews.length === 0) return [];
+        const countMap = new Map<string, number>();
+        for (const r of reviews) {
+            const plat = r.platform?.trim() || "Outro / Não informado";
+            countMap.set(plat, (countMap.get(plat) ?? 0) + 1);
+        }
+        return Array.from(countMap.entries())
+            .map(([platform, count]) => ({
+                platform,
+                count,
+                percentage: Math.round((count / reviews.length) * 100)
+            }))
+            .sort((a, b) => b.count - a.count);
+    }, [reviews]);
+
     return (
         <div className="space-y-8">
             {/* Cabeçalho da página */}
@@ -308,9 +343,6 @@ export default function ProfilesPage() {
                         <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
                             Sintonia da Dupla
                         </h2>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Comparativo de afinidade e divergências cinematográficas entre {user1.name.split(" ")[0]} e {user2.name.split(" ")[0]}
-                        </p>
                     </div>
                 </div>
 
@@ -328,7 +360,7 @@ export default function ProfilesPage() {
                                 </span>
                             </div>
 
-                            <div className="mt-4 flex items-baseline gap-3">
+                            <div className="mt-4 flex items-baseline gap-2">
                                 <span className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                                     {headToHead.affinityPercentage}%
                                 </span>
@@ -338,20 +370,12 @@ export default function ProfilesPage() {
                             </div>
 
                             {/* Barra de progresso */}
-                            <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                                 <div
                                     className="h-full rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 transition-all duration-500"
                                     style={{ width: `${headToHead.affinityPercentage}%` }}
                                 />
                             </div>
-
-                            <p className="mt-3 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                                {headToHead.affinityPercentage >= 85
-                                    ? "Alta sintonia cinematográfica! Vocês quase sempre concordam e avaliam os filmes com notas muito parecidas."
-                                    : headToHead.affinityPercentage >= 70
-                                    ? "Boa sintonia! Na maior parte das sessões vocês têm impressões alinhadas, com espaço para debates saudáveis."
-                                    : "Gostos bem contrastantes! Vocês costumam ter olhares diferentes sobre os mesmos filmes, o que torna cada sessão uma surpresa."}
-                            </p>
 
                             <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
                                 <span>Diferença média por filme:</span>
@@ -394,19 +418,13 @@ export default function ProfilesPage() {
                                 </div>
                             </div>
 
-                            <div className="mt-4 rounded-xl bg-indigo-50/70 p-3 text-xs leading-relaxed text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-200">
-                                {headToHead.criticDiff < 0.05 ? (
-                                    <span>
-                                        <strong>Equilíbrio perfeito!</strong> Ambos têm a mesma média crítica com{" "}
-                                        {headToHead.avg1.toFixed(1)}★.
-                                    </span>
-                                ) : headToHead.moreCriticalUser ? (
-                                    <span>
-                                        <strong>{headToHead.moreCriticalUser.name.split(" ")[0]}</strong> é o mais crítico da dupla, sendo{" "}
-                                        <strong>{headToHead.criticDiff.toFixed(1)}★</strong> mais exigente nas notas do que{" "}
-                                        {headToHead.lessCriticalUser?.name.split(" ")[0]}.
-                                    </span>
-                                ) : null}
+                            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                                <span>Mais exigente:</span>
+                                <strong className="font-semibold text-gray-800 dark:text-gray-200">
+                                    {headToHead.criticDiff < 0.05
+                                        ? "Mesma média crítica"
+                                        : `${headToHead.moreCriticalUser?.name.split(" ")[0]} (${headToHead.criticDiff.toFixed(1)}★ mais exigente)`}
+                                </strong>
                             </div>
                         </div>
 
@@ -438,17 +456,12 @@ export default function ProfilesPage() {
                                         <h4 className="truncate text-sm font-bold text-gray-900 dark:text-white">
                                             {bestAgreement.movie.title}
                                         </h4>
-                                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                            {bestAgreement.diff === 0
-                                                ? `Ambos deram a mesma nota (${bestAgreement.review.ratingUser1}★)`
-                                                : `Notas mais alinhadas (${bestAgreement.review.ratingUser1}★ vs ${bestAgreement.review.ratingUser2}★)`}
-                                        </p>
                                         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                                ⭐ {bestAgreement.review.ratingUser1}★ {user1.name.split(" ")[0]}
+                                            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                                {user1.name.split(" ")[0]}: {bestAgreement.review.ratingUser1}★
                                             </span>
-                                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                                ⭐ {bestAgreement.review.ratingUser2}★ {user2.name.split(" ")[0]}
+                                            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                                {user2.name.split(" ")[0]}: {bestAgreement.review.ratingUser2}★
                                             </span>
                                         </div>
                                     </div>
@@ -458,18 +471,11 @@ export default function ProfilesPage() {
                             )}
                         </div>
 
-                        {/* 4. Maior Discordância ("Discussão de Casal") */}
+                        {/* 4. Maior Discordância */}
                         <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                                    <Flame size={14} />
-                                    Maior Discordância ("Discussão de Casal")
-                                </div>
-                                {mostDivergent && mostDivergent.diff > 0 && (
-                                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
-                                        {mostDivergent.diff.toFixed(1)}★ de diferença
-                                    </span>
-                                )}
+                            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                                <Flame size={14} />
+                                Maior Discordância
                             </div>
 
                             {mostDivergent && mostDivergent.diff > 0 ? (
@@ -493,15 +499,11 @@ export default function ProfilesPage() {
                                         <h4 className="truncate text-sm font-bold text-gray-900 dark:text-white">
                                             {mostDivergent.movie.title}
                                         </h4>
-                                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                            Onde as opiniões da dupla mais divergiram.
-                                        </p>
                                         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                                            <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                            <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
                                                 {user1.name.split(" ")[0]}: {mostDivergent.review.ratingUser1}★
                                             </span>
-                                            <span className="text-gray-400">vs</span>
-                                            <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                            <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
                                                 {user2.name.split(" ")[0]}: {mostDivergent.review.ratingUser2}★
                                             </span>
                                         </div>
@@ -521,8 +523,175 @@ export default function ProfilesPage() {
                             Ainda não há avaliações suficientes para calcular a sintonia da dupla.
                         </p>
                         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                            Avaliem filmes juntos para desbloquear afinidade, maior concordância e discussões de casal!
+                            Avaliem filmes juntos para desbloquear afinidade, maior concordância e discordâncias!
                         </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Top 5 Filmes */}
+            <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                        <Trophy size={20} />
+                    </span>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+                            Top Filmes
+                        </h2>
+                    </div>
+                </div>
+
+                {topCoupleMovies.length > 0 ? (
+                    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {topCoupleMovies.map(({ movie, review, combinedRating }, index) => {
+                                const rank = index + 1;
+                                return (
+                                    <div
+                                        key={`${movie.id}-${review.id}`}
+                                        className="flex items-center gap-3.5 p-3.5 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-800/30 sm:gap-4 sm:p-4"
+                                    >
+                                        {/* Rank */}
+                                        <span
+                                            className={cn(
+                                                "w-7 text-center text-xs font-bold sm:w-8 sm:text-sm",
+                                                rank === 1
+                                                    ? "text-amber-500 dark:text-amber-400 font-extrabold"
+                                                    : rank === 2
+                                                    ? "text-slate-500 dark:text-slate-400 font-bold"
+                                                    : rank === 3
+                                                    ? "text-amber-700 dark:text-amber-600 font-bold"
+                                                    : "text-gray-400 dark:text-gray-500"
+                                            )}
+                                        >
+                                            #{rank}
+                                        </span>
+
+                                        {/* Poster */}
+                                        <div className="relative aspect-[2/3] w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700 sm:w-12">
+                                            {movie.poster_path ? (
+                                                <Image
+                                                    src={getPosterUrl(movie.poster_path, "w342")}
+                                                    alt={movie.title}
+                                                    fill
+                                                    sizes="48px"
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-full items-center justify-center p-1 text-center text-[8px] text-gray-400">
+                                                    Sem capa
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Título e notas individuais */}
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                                {movie.title}
+                                            </h4>
+                                            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                {user1.name.split(" ")[0]}: {review.ratingUser1}★ • {user2.name.split(" ")[0]}: {review.ratingUser2}★
+                                            </p>
+                                        </div>
+
+                                        {/* Média combinada */}
+                                        <div className="shrink-0">
+                                            <span className="inline-flex items-center rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                                                {combinedRating.toFixed(1)}★
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:text-gray-400 dark:ring-gray-800">
+                        Nenhum filme avaliado ainda para montar o ranking.
+                    </div>
+                )}
+            </div>
+
+            {/* Plataformas */}
+            <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+                        <Tv size={20} />
+                    </span>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+                            Plataformas
+                        </h2>
+                    </div>
+                </div>
+
+                {platformStats.length > 0 ? (
+                    <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
+                        {/* Barra de distribuição visual acumulada */}
+                        <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                            {platformStats.map((item, idx) => {
+                                const colors = [
+                                    "bg-indigo-600",
+                                    "bg-purple-500",
+                                    "bg-blue-500",
+                                    "bg-amber-500",
+                                    "bg-emerald-500",
+                                    "bg-pink-500",
+                                    "bg-cyan-500"
+                                ];
+                                const color = colors[idx % colors.length];
+                                return (
+                                    <div
+                                        key={item.platform}
+                                        style={{ width: `${Math.max(item.percentage, 2)}%` }}
+                                        className={cn("h-full transition-all duration-500", color)}
+                                        title={`${item.platform}: ${item.percentage}% (${item.count} ${item.count === 1 ? "sessão" : "sessões"})`}
+                                    />
+                                );
+                            })}
+                        </div>
+
+                        {/* Grade com detalhes de cada plataforma */}
+                        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                            {platformStats.map((item, idx) => {
+                                const dotColors = [
+                                    "bg-indigo-600",
+                                    "bg-purple-500",
+                                    "bg-blue-500",
+                                    "bg-amber-500",
+                                    "bg-emerald-500",
+                                    "bg-pink-500",
+                                    "bg-cyan-500"
+                                ];
+                                const dotColor = dotColors[idx % dotColors.length];
+                                return (
+                                    <div
+                                        key={item.platform}
+                                        className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/40"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", dotColor)} />
+                                            <span className="truncate text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                                {item.platform}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 flex items-baseline justify-between">
+                                            <span className="text-lg font-bold text-gray-900 dark:text-white">
+                                                {item.percentage}%
+                                            </span>
+                                            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                                {item.count} {item.count === 1 ? "sessão" : "sessões"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:text-gray-400 dark:ring-gray-800">
+                        Nenhuma plataforma informada nas sessões ainda.
                     </div>
                 )}
             </div>

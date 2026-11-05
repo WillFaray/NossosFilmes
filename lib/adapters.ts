@@ -16,8 +16,10 @@ export function toMovieFromReview(dbReview: DbMovieReview): Movie {
         id: dbReview.tmdbId,
         title: dbReview.title,
         poster_path: dbReview.posterPath,
-        release_date: "",
-        genres: dbReview.genres
+        release_date: dbReview.releaseDate ?? "",
+        genres: dbReview.genres,
+        overview: dbReview.overview ?? undefined,
+        runtime: dbReview.runtime ?? undefined
     };
 }
 
@@ -31,6 +33,9 @@ export function toAppReview(dbReview: DbMovieReview): Review {
         ratingUser2: dbReview.ratingUser2,
         textReview: dbReview.textReview,
         recommendedBy: dbReview.recommendedById,
-        platform: dbReview.platform ?? undefined
+        platform: dbReview.platform ?? undefined,
+        runtime: dbReview.runtime ?? undefined,
+        overview: dbReview.overview ?? undefined,
+        releaseDate: dbReview.releaseDate ?? undefined
     };
 }

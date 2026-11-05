@@ -56,9 +56,12 @@ export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps)
                                     </span>
                                 )}
                             </button>
-                            <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-                                {formatDate(review.dateWatched)}
-                            </p>
+                            <div className="mt-2 flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
+                                <span className="truncate text-[11px]">{formatDate(review.dateWatched)}</span>
+                                <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                                    {((review.ratingUser1 + review.ratingUser2) / 2).toFixed(1)}★
+                                </span>
+                            </div>
                         </li>
                     );
                 })}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Clock, Loader2, Pencil, RotateCcw, Trash2, Tv, UserCheck } from "lucide-react";
+import { CalendarDays, Clock, ExternalLink, Loader2, Pencil, RotateCcw, Trash2, Tv, UserCheck } from "lucide-react";
 import Image from "next/image";
 import type { HistoryEntry, Movie, Review, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -65,12 +65,31 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
 
                         {/* Conteúdo */}
                         <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                                {entry.movie.title}
-                            </h3>
-                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                {entry.movie.genres.join(" · ")}
-                            </p>
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                        {entry.movie.title}
+                                        {entry.movie.release_date && (
+                                            <span className="ml-1.5 text-sm font-normal text-gray-400 dark:text-gray-500">
+                                                ({entry.movie.release_date.slice(0, 4)})
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        {entry.movie.genres.join(" · ")}
+                                    </p>
+                                </div>
+                                <a
+                                    href={`https://www.themoviedb.org/movie/${entry.movie.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white shrink-0"
+                                    title="Ver ficha completa no TMDB (trailer, elenco e direção)"
+                                >
+                                    <span>TMDB</span>
+                                    <ExternalLink size={12} />
+                                </a>
+                            </div>
 
                             <div className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-gray-600 dark:text-gray-300">
                                 <span className="inline-flex items-center gap-1.5">
@@ -108,9 +127,27 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                 Recomendado por {entry.recommender.name}
                             </div>
 
-                            <p className="mt-4 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                {entry.review.textReview}
-                            </p>
+                            {/* Sinopse oficial do TMDB */}
+                            {entry.movie.overview && (
+                                <div className="mt-4 rounded-xl bg-gray-50/80 p-3.5 dark:bg-gray-800/40">
+                                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                        Sinopse
+                                    </h4>
+                                    <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+                                        {entry.movie.overview}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Avaliação da dupla */}
+                            <div className="mt-4">
+                                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                    Avaliação da Dupla
+                                </h4>
+                                <p className="mt-1.5 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+                                    {entry.review.textReview}
+                                </p>
+                            </div>
 
                             <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 dark:border-gray-800">
                                 <div className="flex items-center justify-between gap-3">

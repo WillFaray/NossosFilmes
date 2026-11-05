@@ -23,6 +23,9 @@ export interface Review {
     textReview: string;
     recommendedBy: string;
     platform?: string;
+    runtime?: number;
+    overview?: string;
+    releaseDate?: string;
 }
 
 export interface HistoryEntry {

@@ -60,7 +60,8 @@ export function ReviewProvider({
             id: item.tmdbId,
             title: item.title,
             poster_path: item.posterPath,
-            release_date: "",
+            release_date: item.releaseDate ?? "",
+            overview: item.overview ?? undefined,
             genres: item.genres
         }))
     );
@@ -102,7 +103,8 @@ export function ReviewProvider({
                 id: item.tmdbId,
                 title: item.title,
                 poster_path: item.posterPath,
-                release_date: "",
+                release_date: item.releaseDate ?? "",
+                overview: item.overview ?? undefined,
                 genres: item.genres
             }))
         );
@@ -159,6 +161,9 @@ export function ReviewProvider({
                 textReview: entry.textReview,
                 genres: entry.movie.genres,
                 platform: entry.platform,
+                runtime: entry.movie.runtime,
+                releaseDate: entry.movie.release_date,
+                overview: entry.movie.overview,
                 recommendedById: entry.recommendedBy
             });
 
@@ -185,7 +190,9 @@ export function ReviewProvider({
                 tmdbId: movie.id,
                 title: movie.title,
                 posterPath: movie.poster_path,
-                genres: movie.genres
+                genres: movie.genres,
+                releaseDate: movie.release_date,
+                overview: movie.overview
             });
 
             setWatchlist((prev) => {
@@ -211,6 +218,9 @@ export function ReviewProvider({
                 textReview: entry.textReview,
                 genres: entry.movie.genres,
                 platform: entry.platform,
+                runtime: entry.movie.runtime,
+                releaseDate: entry.movie.release_date,
+                overview: entry.movie.overview,
                 recommendedById: entry.recommendedBy
             });
 

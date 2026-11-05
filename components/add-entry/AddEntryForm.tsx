@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Film, Loader2, Sparkles, Tv, X } from "lucide-react";
+import { BookmarkCheck, Clock, Film, Loader2, Sparkles, Tv, X } from "lucide-react";
 import Image from "next/image";
 import type { Movie } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -36,7 +36,7 @@ export function AddEntryForm() {
     const searchParams = useSearchParams();
     const urlTmdbId = searchParams.get("tmdbId");
 
-    const { addEntry, users, reviews, watchlist, movies } = useReviews();
+    const { addEntry, users, reviews, watchlist, movies, removeFromWatchlist } = useReviews();
 
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [loadingFromUrl, setLoadingFromUrl] = useState(false);
@@ -45,11 +45,27 @@ export function AddEntryForm() {
     const [ratingUser2, setRatingUser2] = useState(0);
     const [textReview, setTextReview] = useState("");
     const [platform, setPlatform] = useState("");
+    const [customRuntime, setCustomRuntime] = useState<string>("");
     // users[0] é seguro: o SetupRedirect só renderiza esta página com 2 usuários
     const [recommendedBy, setRecommendedBy] = useState(users[0]?.id ?? "");
+    const [removeWatchlistOnSave, setRemoveWatchlistOnSave] = useState(true);
     const [toastOpen, setToastOpen] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
     const [saving, setSaving] = useState(false);
+
+    // Atualiza a duração padrão caso o filme selecionado mude
+    useEffect(() => {
+        if (selectedMovie?.runtime && selectedMovie.runtime > 0) {
+            setCustomRuntime(String(selectedMovie.runtime));
+        } else {
+            setCustomRuntime("");
+        }
+    }, [selectedMovie]);
+
+    // Verifica se o filme selecionado está atualmente na Lista de Interesse
+    const isInWatchlist = useMemo(() => {
+        return Boolean(selectedMovie && watchlist.some((m) => m.id === selectedMovie.id));
+    }, [selectedMovie, watchlist]);
 
     // Carrega filme automaticamente caso tmdbId venha na URL (ex: via Watchlist ou Roleta)
     useEffect(() => {
@@ -125,8 +141,15 @@ export function AddEntryForm() {
 
         setSaving(true);
         try {
+            const currentMovieId = selectedMovie!.id;
+            const shouldRemoveFromWatchlist = isInWatchlist && removeWatchlistOnSave;
+            const parsedRuntime = customRuntime.trim() ? parseInt(customRuntime, 10) : selectedMovie?.runtime;
+
             await addEntry({
-                movie: selectedMovie!,
+                movie: {
+                    ...selectedMovie!,
+                    runtime: parsedRuntime && parsedRuntime > 0 ? parsedRuntime : undefined
+                },
                 dateWatched,
                 ratingUser1,
                 ratingUser2,
@@ -135,6 +158,14 @@ export function AddEntryForm() {
                 recommendedBy
             });
 
+            if (shouldRemoveFromWatchlist) {
+                try {
+                    await removeFromWatchlist(currentMovieId);
+                } catch (error) {
+                    console.error("Erro ao remover da watchlist:", error);
+                }
+            }
+
             // Reset para novo registro
             setSelectedMovie(null);
             setDateWatched(getTodayDateString());
@@ -142,7 +173,9 @@ export function AddEntryForm() {
             setRatingUser2(0);
             setTextReview("");
             setPlatform("");
+            setCustomRuntime("");
             setRecommendedBy(users[0].id);
+            setRemoveWatchlistOnSave(true);
             setErrors([]);
             setToastOpen(true);
 
@@ -295,6 +328,42 @@ export function AddEntryForm() {
                         />
                     </div>
 
+                    {/* Duração em minutos (com suporte a versões estendidas) */}
+                    <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                            <label htmlFor="customRuntime" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <Clock size={15} className="text-gray-400" />
+                                Duração
+                            </label>
+                            {customRuntime && parseInt(customRuntime, 10) > 0 && (
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                    {Math.floor(parseInt(customRuntime, 10) / 60)}h {parseInt(customRuntime, 10) % 60}m
+                                    {selectedMovie?.runtime && parseInt(customRuntime, 10) !== selectedMovie.runtime
+                                        ? " (versão estendida / corte do diretor)"
+                                        : ""}
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <input
+                                id="customRuntime"
+                                type="number"
+                                min={1}
+                                max={999}
+                                value={customRuntime}
+                                onChange={(e) => setCustomRuntime(e.target.value)}
+                                placeholder="Duração em minutos (ex: 120)"
+                                className="w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
+                            />
+                            <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                                min
+                            </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                            Preenchido pelo TMDB. Ajuste livremente caso tenham visto uma versão estendida.
+                        </p>
+                    </div>
+
                     {/* Notas dos usuários */}
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
@@ -376,6 +445,24 @@ export function AddEntryForm() {
                             ))}
                         </div>
                     </div>
+
+                    {/* Opção para remover da Watchlist se estiver na lista */}
+                    {isInWatchlist && (
+                        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-indigo-200/70 bg-indigo-50/50 p-3.5 text-xs text-indigo-950 transition-colors hover:bg-indigo-50 dark:border-indigo-500/20 dark:bg-indigo-500/5 dark:text-indigo-200 dark:hover:bg-indigo-500/10">
+                            <input
+                                type="checkbox"
+                                checked={removeWatchlistOnSave}
+                                onChange={(e) => setRemoveWatchlistOnSave(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800"
+                            />
+                            <div className="flex items-center gap-2">
+                                <BookmarkCheck size={16} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                <span>
+                                    Remover este filme da <strong>Lista de Interesse</strong> após salvar o registro
+                                </span>
+                            </div>
+                        </label>
+                    )}
 
                     {/* Erros */}
                     {errors.length > 0 && (

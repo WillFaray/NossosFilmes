@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Save, Tv } from "lucide-react";
+import { Clock, Loader2, Save, Tv } from "lucide-react";
 import type { Movie, Review, User } from "@/types";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
@@ -35,6 +35,9 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
     const [ratingUser2, setRatingUser2] = useState(review.ratingUser2);
     const [textReview, setTextReview] = useState(review.textReview);
     const [platform, setPlatform] = useState(review.platform ?? "");
+    const [runtime, setRuntime] = useState<string>(
+        review.runtime ? String(review.runtime) : (movie.runtime ? String(movie.runtime) : "")
+    );
     const [recommendedBy, setRecommendedBy] = useState(review.recommendedBy);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -61,8 +64,12 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
         setError(null);
 
         try {
+            const parsedRuntime = runtime.trim() ? parseInt(runtime, 10) : undefined;
             await onSave(review.id, {
-                movie,
+                movie: {
+                    ...movie,
+                    runtime: parsedRuntime && parsedRuntime > 0 ? parsedRuntime : undefined
+                },
                 dateWatched,
                 ratingUser1,
                 ratingUser2,
@@ -152,6 +159,37 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                             maxLength={50}
                             className="mt-1 w-full rounded-xl border-0 bg-white px-3.5 py-2 text-xs text-gray-900 shadow-sm ring-1 ring-gray-200 transition placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
                         />
+                    </div>
+
+                    {/* Duração em minutos (com suporte a versões estendidas) */}
+                    <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                            <label htmlFor="editRuntime" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <Clock size={14} className="text-gray-400" />
+                                Duração
+                            </label>
+                            {runtime && parseInt(runtime, 10) > 0 && (
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                    {Math.floor(parseInt(runtime, 10) / 60)}h {parseInt(runtime, 10) % 60}m
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <input
+                                id="editRuntime"
+                                type="number"
+                                min={1}
+                                max={999}
+                                value={runtime}
+                                onChange={(e) => setRuntime(e.target.value)}
+                                disabled={saving}
+                                placeholder="Duração em minutos (ex: 120)"
+                                className="w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-gray-200 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-gray-100 dark:ring-gray-700"
+                            />
+                            <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                                min
+                            </span>
+                        </div>
                     </div>
 
                     {/* Notas dos dois perfis */}

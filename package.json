@@ -3,11 +3,11 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start",
-        "db:generate": "prisma generate",
-        "db:migrate": "prisma migrate deploy"
+        "dev": "bun x next dev",
+        "build": "bun x next build",
+        "start": "bun x next start",
+        "db:generate": "bun x prisma generate",
+        "db:migrate": "bun x prisma migrate deploy"
     },
     "dependencies": {
         "@prisma/adapter-better-sqlite3": "^7.9.1",

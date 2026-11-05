@@ -57,10 +57,15 @@ export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps)
 
                                 {/* Informações */}
                                 <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-1.5">
                                         <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
                                             {movie.title}
                                         </h3>
+                                        {movie.release_date && (
+                                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                                                ({movie.release_date.slice(0, 4)})
+                                            </span>
+                                        )}
                                         {isRewatch && (
                                             <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 ring-1 ring-inset ring-purple-600/20 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-500/30">
                                                 <RotateCcw size={10} />

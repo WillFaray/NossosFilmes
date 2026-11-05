@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Dices, FilterX, ListPlus, Search, X } from "lucide-react";
+import { ArrowDownAZ, Dices, FilterX, ListPlus, Search, X } from "lucide-react";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { DropdownOption, DropdownSelect } from "@/components/ui/DropdownSelect";
 import { MovieCard } from "@/components/ui/MovieCard";
@@ -13,6 +13,7 @@ export default function WatchlistPage() {
     const [rouletteOpen, setRouletteOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedGenre, setSelectedGenre] = useState<string>("all");
+    const [sortBy, setSortBy] = useState<"default" | "title-asc" | "title-desc">("default");
 
     // Gêneros disponíveis na lista com contagem
     const availableGenres = useMemo(() => {
@@ -38,21 +39,37 @@ export default function WatchlistPage() {
         ];
     }, [watchlist.length, availableGenres]);
 
-    // Filmes filtrados por busca de título e gênero
+    // Opções de ordenação
+    const sortOptions: DropdownOption<"default" | "title-asc" | "title-desc">[] = [
+        { value: "default", label: "Ordem padrão" },
+        { value: "title-asc", label: "Título (A-Z)" },
+        { value: "title-desc", label: "Título (Z-A)" }
+    ];
+
+    // Filmes filtrados por busca de título, gênero e ordenação
     const filteredWatchlist = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        return watchlist.filter((m) => {
+        const result = watchlist.filter((m) => {
             const matchesTitle = query === "" || m.title.toLowerCase().includes(query);
             const matchesGenre = selectedGenre === "all" || (m.genres ?? []).includes(selectedGenre);
             return matchesTitle && matchesGenre;
         });
-    }, [watchlist, searchQuery, selectedGenre]);
 
-    const hasActiveFilters = searchQuery.trim() !== "" || selectedGenre !== "all";
+        if (sortBy === "title-asc") {
+            result.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+        } else if (sortBy === "title-desc") {
+            result.sort((a, b) => b.title.localeCompare(a.title, "pt-BR"));
+        }
+
+        return result;
+    }, [watchlist, searchQuery, selectedGenre, sortBy]);
+
+    const hasActiveFilters = searchQuery.trim() !== "" || selectedGenre !== "all" || sortBy !== "default";
 
     const clearFilters = () => {
         setSearchQuery("");
         setSelectedGenre("all");
+        setSortBy("default");
     };
 
     return (
@@ -118,12 +135,22 @@ export default function WatchlistPage() {
                         </div>
 
                         {/* Seletor de Gênero */}
-                        <div className="w-full sm:w-56">
+                        <div className="w-full sm:w-52">
                             <DropdownSelect
                                 value={selectedGenre}
                                 options={genreOptions}
                                 onChange={setSelectedGenre}
                                 ariaLabel="Filtrar lista por gênero"
+                            />
+                        </div>
+
+                        {/* Seletor de Ordenação */}
+                        <div className="w-full sm:w-44">
+                            <DropdownSelect
+                                value={sortBy}
+                                options={sortOptions}
+                                onChange={setSortBy}
+                                ariaLabel="Ordenar lista de interesse"
                             />
                         </div>
 

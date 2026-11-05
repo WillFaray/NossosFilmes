@@ -8,8 +8,10 @@ import {
     FilterX,
     LayoutGrid,
     List,
+    RotateCcw,
     Search,
     Star,
+    Tv,
     X
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -48,6 +50,8 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     const [sortBy, setSortBy] = useState<SortOption>("date-desc");
     const [recommenderFilter, setRecommenderFilter] = useState<string>("all");
     const [genreFilter, setGenreFilter] = useState<string>("all");
+    const [platformFilter, setPlatformFilter] = useState<string>("all");
+    const [rewatchOnly, setRewatchOnly] = useState(false);
     const [minRating, setMinRating] = useState<number>(0);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
@@ -59,10 +63,35 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         return Array.from(genres).sort((a, b) => a.localeCompare(b, "pt-BR"));
     }, [entries]);
 
+    // Plataformas disponíveis nos registros atuais
+    const availablePlatforms = useMemo(() => {
+        const map = new Map<string, number>();
+        entries.forEach((e) => {
+            if (e.review.platform) {
+                map.set(e.review.platform, (map.get(e.review.platform) ?? 0) + 1);
+            }
+        });
+        return Array.from(map.entries())
+            .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+            .map(([platform, count]) => ({ platform, count }));
+    }, [entries]);
+
+    const platformOptions = useMemo(() => {
+        return [
+            { value: "all", label: "Todas as plataformas" },
+            ...availablePlatforms.map(({ platform, count }) => ({
+                value: platform,
+                label: `${platform} (${count})`
+            }))
+        ];
+    }, [availablePlatforms]);
+
     const hasActiveFilters =
         Boolean(searchQuery.trim()) ||
         recommenderFilter !== "all" ||
         genreFilter !== "all" ||
+        platformFilter !== "all" ||
+        rewatchOnly ||
         minRating > 0 ||
         Boolean(dateFrom) ||
         Boolean(dateTo);
@@ -71,6 +100,8 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         setSearchQuery("");
         setRecommenderFilter("all");
         setGenreFilter("all");
+        setPlatformFilter("all");
+        setRewatchOnly(false);
         setMinRating(0);
         setDateFrom("");
         setDateTo("");
@@ -91,6 +122,14 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
         if (genreFilter !== "all") {
             result = result.filter((e) => (e.movie.genres ?? []).includes(genreFilter));
+        }
+
+        if (platformFilter !== "all") {
+            result = result.filter((e) => e.review.platform === platformFilter);
+        }
+
+        if (rewatchOnly) {
+            result = result.filter((e) => e.isRewatch);
         }
 
         if (minRating > 0) {
@@ -133,7 +172,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         }
 
         return result;
-    }, [entries, searchQuery, sortBy, recommenderFilter, genreFilter, minRating, dateFrom, dateTo]);
+    }, [entries, searchQuery, sortBy, recommenderFilter, genreFilter, platformFilter, rewatchOnly, minRating, dateFrom, dateTo]);
 
     // Visão calendário sempre usa entradas completas ordenadas
     const calendarEntries = useMemo(
@@ -267,6 +306,23 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 ))}
                             </div>
                         </div>
+
+                        {/* Filtro rápido: Re-watches */}
+                        <div className="flex items-center">
+                            <button
+                                type="button"
+                                onClick={() => setRewatchOnly(!rewatchOnly)}
+                                className={cn(
+                                    "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                                    rewatchOnly
+                                        ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300 dark:bg-purple-500/20 dark:text-purple-300 dark:ring-purple-500/40"
+                                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                                )}
+                            >
+                                <RotateCcw size={12} className={cn(rewatchOnly ? "text-purple-600 dark:text-purple-400" : "text-gray-400")} />
+                                Apenas Re-watches
+                            </button>
+                        </div>
                     </div>
 
                     {/* Linha 3: Filtros avançados: gênero, nota e período */}
@@ -293,6 +349,23 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 ]}
                             />
                         </div>
+
+                        {/* Plataforma */}
+                        {availablePlatforms.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                    <Tv size={11} />
+                                    Onde
+                                </span>
+                                <DropdownSelect
+                                    ariaLabel="Filtrar por plataforma"
+                                    className="w-40"
+                                    value={platformFilter}
+                                    onChange={setPlatformFilter}
+                                    options={platformOptions}
+                                />
+                            </div>
+                        )}
 
                         {/* Nota mínima */}
                         <div className="flex items-center gap-2">

@@ -14,6 +14,9 @@ export interface MovieReviewInput {
     genres: string[];
     recommendedById: string;
     platform?: string;
+    runtime?: number;
+    releaseDate?: string;
+    overview?: string;
 }
 
 export interface DbUser {
@@ -34,6 +37,9 @@ export interface DbMovieReview {
     genres: string[];
     recommendedById: string;
     platform?: string | null;
+    runtime?: number | null;
+    releaseDate?: string | null;
+    overview?: string | null;
 }
 
 export interface DbWatchlistItem {
@@ -42,6 +48,8 @@ export interface DbWatchlistItem {
     title: string;
     posterPath: string;
     genres: string[];
+    releaseDate?: string | null;
+    overview?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -159,11 +167,17 @@ function serializeReview(review: {
     genres: string;
     recommendedById: string;
     platform?: string | null;
+    runtime?: number | null;
+    releaseDate?: string | null;
+    overview?: string | null;
 }): DbMovieReview {
     return {
         ...review,
         genres: JSON.parse(review.genres || "[]") as string[],
-        platform: review.platform ?? null
+        platform: review.platform ?? null,
+        runtime: review.runtime ?? null,
+        releaseDate: review.releaseDate ?? null,
+        overview: review.overview ?? null
     };
 }
 
@@ -262,6 +276,8 @@ export async function addToWatchlist(input: {
     title: string;
     posterPath: string;
     genres: string[];
+    releaseDate?: string;
+    overview?: string;
 }): Promise<DbWatchlistItem> {
     const firstUser = await prisma.user.findFirst({ select: { id: true } });
     if (!firstUser) {
@@ -277,6 +293,8 @@ export async function addToWatchlist(input: {
             title: input.title,
             posterPath: input.posterPath,
             genres: JSON.stringify(validateGenres(input.genres)),
+            releaseDate: input.releaseDate || null,
+            overview: input.overview || null,
             addedById: firstUser.id
         }
     });
@@ -344,6 +362,9 @@ export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieRe
                 textReview: input.textReview.trim(),
                 genres: JSON.stringify(input.genres),
                 platform: input.platform?.trim() || null,
+                runtime: input.runtime && input.runtime > 0 ? input.runtime : null,
+                releaseDate: input.releaseDate || null,
+                overview: input.overview || null,
                 recommendedById: input.recommendedById
             }
         })
@@ -377,6 +398,9 @@ export async function updateMovieReview(
             textReview: input.textReview.trim(),
             genres: JSON.stringify(input.genres),
             platform: input.platform?.trim() || null,
+            runtime: input.runtime && input.runtime > 0 ? input.runtime : null,
+            releaseDate: input.releaseDate || null,
+            overview: input.overview || null,
             recommendedById: input.recommendedById
         }
     });
@@ -576,6 +600,8 @@ export async function importData(raw: unknown): Promise<{ users: number; reviews
                     title: item.title,
                     posterPath: item.posterPath,
                     genres: JSON.stringify(item.genres ?? []),
+                    releaseDate: item.releaseDate || null,
+                    overview: item.overview || null,
                     addedById: firstUser.id
                 }
             })
@@ -593,6 +619,9 @@ export async function importData(raw: unknown): Promise<{ users: number; reviews
                     textReview: review.textReview,
                     genres: JSON.stringify(review.genres ?? []),
                     platform: review.platform?.trim() || null,
+                    runtime: typeof review.runtime === "number" && review.runtime > 0 ? review.runtime : null,
+                    releaseDate: review.releaseDate || null,
+                    overview: review.overview || null,
                     recommendedById: review.recommendedById
                 }
             })
@@ -706,6 +735,9 @@ export async function mergeData(
                     textReview: review.textReview,
                     genres: JSON.stringify(review.genres ?? []),
                     platform: review.platform?.trim() || null,
+                    runtime: typeof review.runtime === "number" && review.runtime > 0 ? review.runtime : null,
+                    releaseDate: review.releaseDate || null,
+                    overview: review.overview || null,
                     recommendedById: recommenderId
                 }
             });
@@ -718,6 +750,8 @@ export async function mergeData(
                     title: item.title,
                     posterPath: item.posterPath,
                     genres: JSON.stringify(item.genres ?? []),
+                    releaseDate: item.releaseDate || null,
+                    overview: item.overview || null,
                     addedById: defaultRecommenderId
                 }
             })

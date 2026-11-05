@@ -15,14 +15,16 @@ model User {
 }
 
 model WatchlistItem {
-    id         String @id @default(cuid())
-    tmdbId     String @unique
-    title      String
-    posterPath String
-    genres     String
-    createdAt  DateTime @default(now())
-    addedById  String
-    addedBy    User   @relation(fields: [addedById], references: [id])
+    id          String   @id @default(cuid())
+    tmdbId      String   @unique
+    title       String
+    posterPath  String
+    genres      String
+    releaseDate String?
+    overview    String?
+    createdAt   DateTime @default(now())
+    addedById   String
+    addedBy     User     @relation(fields: [addedById], references: [id])
 }
 
 model MovieReview {
@@ -36,6 +38,9 @@ model MovieReview {
     textReview     String
     genres         String
     platform       String?
+    runtime        Int?
+    releaseDate    String?
+    overview       String?
     recommendedById String
     recommendedBy  User   @relation("RecommendedReviews", fields: [recommendedById], references: [id])
 
