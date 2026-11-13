@@ -36,7 +36,7 @@ export function AddEntryForm() {
     const searchParams = useSearchParams();
     const urlTmdbId = searchParams.get("tmdbId");
 
-    const { addEntry, users, reviews, watchlist, movies, removeFromWatchlist } = useReviews();
+    const { addEntry, users, reviews, watchlist, movies } = useReviews();
 
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [loadingFromUrl, setLoadingFromUrl] = useState(false);
@@ -141,7 +141,6 @@ export function AddEntryForm() {
 
         setSaving(true);
         try {
-            const currentMovieId = selectedMovie!.id;
             const shouldRemoveFromWatchlist = isInWatchlist && removeWatchlistOnSave;
             const parsedRuntime = customRuntime.trim() ? parseInt(customRuntime, 10) : selectedMovie?.runtime;
 
@@ -155,16 +154,9 @@ export function AddEntryForm() {
                 ratingUser2,
                 textReview: textReview.trim(),
                 platform: platform.trim() || undefined,
-                recommendedBy
+                recommendedBy,
+                removeFromWatchlist: shouldRemoveFromWatchlist
             });
-
-            if (shouldRemoveFromWatchlist) {
-                try {
-                    await removeFromWatchlist(currentMovieId);
-                } catch (error) {
-                    console.error("Erro ao remover da watchlist:", error);
-                }
-            }
 
             // Reset para novo registro
             setSelectedMovie(null);

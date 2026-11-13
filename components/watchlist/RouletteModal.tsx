@@ -2,26 +2,58 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Dices, Filter, PlusCircle, RotateCcw, Sparkles } from "lucide-react";
+import { Clock, Dices, Filter, PlusCircle, RotateCcw, Sparkles, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { Movie } from "@/types";
-import { formatDate, getPosterUrl } from "@/lib/utils";
+import type { Movie, User } from "@/types";
+import { getPosterUrl } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
+import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
+
+export type DurationFilter = "all" | "short" | "medium" | "long";
 
 interface RouletteModalProps {
     open: boolean;
     onClose: () => void;
     movies: Movie[];
+    users?: User[];
     initialGenre?: string;
+    initialAddedBy?: string;
+    initialDuration?: DurationFilter;
 }
 
-export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: RouletteModalProps) {
+const DURATION_OPTIONS: { id: DurationFilter; label: string }[] = [
+    { id: "all", label: "Qualquer duração" },
+    { id: "short", label: "Até 1h45" },
+    { id: "medium", label: "Até 2h" },
+    { id: "long", label: "+2h" }
+];
+
+export function matchesDuration(runtime: number | undefined, filter: DurationFilter): boolean {
+    if (filter === "all") return true;
+    if (!runtime || runtime <= 0) return false;
+    if (filter === "short") return runtime <= 105;
+    if (filter === "medium") return runtime <= 120;
+    if (filter === "long") return runtime > 120;
+    return true;
+}
+
+export function RouletteModal({
+    open,
+    onClose,
+    movies,
+    users = [],
+    initialGenre = "all",
+    initialAddedBy = "all",
+    initialDuration = "all"
+}: RouletteModalProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [result, setResult] = useState<Movie | null>(null);
     const [rolling, setRolling] = useState(false);
     const [selectedGenre, setSelectedGenre] = useState<string>(initialGenre);
+    const [selectedAddedBy, setSelectedAddedBy] = useState<string>(initialAddedBy);
+    const [selectedDuration, setSelectedDuration] = useState<DurationFilter>(initialDuration);
     const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
     const clearTimers = () => {
@@ -29,38 +61,40 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
         timersRef.current = [];
     };
 
-    // Gêneros disponíveis nos filmes da watchlist
     const availableGenres = useMemo(() => {
         const set = new Set<string>();
         movies.forEach((m) => (m.genres ?? []).forEach((g) => set.add(g)));
         return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
     }, [movies]);
 
-    // Filmes elegíveis conforme o filtro de gênero
     const eligibleMovies = useMemo(() => {
-        if (selectedGenre === "all") return movies;
-        return movies.filter((m) => (m.genres ?? []).includes(selectedGenre));
-    }, [movies, selectedGenre]);
+        return movies.filter((m) => {
+            const matchesGenre = selectedGenre === "all" || (m.genres ?? []).includes(selectedGenre);
+            const matchesUser = selectedAddedBy === "all" || m.addedBy === selectedAddedBy;
+            const matchesTime = matchesDuration(m.runtime, selectedDuration);
+            return matchesGenre && matchesUser && matchesTime;
+        });
+    }, [movies, selectedGenre, selectedAddedBy, selectedDuration]);
 
-    // Reinicia o estado quando abre
     useEffect(() => {
         if (open) {
             setCurrentIndex(0);
             setResult(null);
             setRolling(false);
             setSelectedGenre(initialGenre);
+            setSelectedAddedBy(initialAddedBy);
+            setSelectedDuration(initialDuration);
         } else {
             clearTimers();
         }
 
         return () => clearTimers();
-    }, [open, initialGenre]);
+    }, [open, initialGenre, initialAddedBy, initialDuration]);
 
-    // Ajusta o índice quando o filtro muda
     useEffect(() => {
         setCurrentIndex(0);
         setResult(null);
-    }, [selectedGenre]);
+    }, [selectedGenre, selectedAddedBy, selectedDuration]);
 
     const spin = () => {
         if (eligibleMovies.length === 0 || rolling) return;
@@ -70,14 +104,10 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
         setCurrentIndex(0);
         clearTimers();
 
-        // Define o filme final (aleatório) entre os elegíveis
         const finalIndex = Math.floor(Math.random() * eligibleMovies.length);
-
-        // Total de passos para dar sensação de duração (2 a 3 voltas completas)
         const steps = eligibleMovies.length * 2 + finalIndex + 1;
 
         const durations: number[] = [];
-        // Easing: começa rápido e desacelera gradativamente (de 60ms até 450ms)
         for (let i = 0; i < steps; i++) {
             const progress = i / steps;
             durations.push(60 + progress * progress * 390);
@@ -134,48 +164,111 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                     </div>
                 ) : (
                     <>
-                        {/* Seletor de Gênero para o sorteio */}
-                        {!result && availableGenres.length > 0 && (
-                            <div className="mt-5 rounded-2xl bg-gray-50 p-3 dark:bg-gray-800/40">
-                                <div className="mb-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-                                    <Filter size={12} />
-                                    <span>Filtrar sorteio por gênero:</span>
-                                </div>
-                                <div className="flex max-h-24 flex-wrap justify-center gap-1.5 overflow-y-auto">
-                                    <button
-                                        type="button"
-                                        disabled={rolling}
-                                        onClick={() => setSelectedGenre("all")}
-                                        className={cn(
-                                            "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                                            selectedGenre === "all"
-                                                ? "bg-indigo-600 text-white shadow-sm"
-                                                : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
-                                        )}
-                                    >
-                                        Todos ({movies.length})
-                                    </button>
-                                    {availableGenres.map((genre) => {
-                                        const count = movies.filter((m) => m.genres.includes(genre)).length;
-                                        const isSelected = selectedGenre === genre;
-                                        return (
+                        {/* Filtros de sorteio */}
+                        {!result && (
+                            <div className="mt-5 space-y-3 rounded-2xl bg-gray-50 p-3.5 dark:bg-gray-800/40">
+                                {/* Quem adicionou & Duração */}
+                                <div className="flex flex-wrap items-center justify-center gap-3">
+                                    {users.length === 2 && (
+                                        <div className="flex items-center gap-1">
+                                            <Users size={12} className="text-gray-400" />
                                             <button
-                                                key={genre}
                                                 type="button"
                                                 disabled={rolling}
-                                                onClick={() => setSelectedGenre(genre)}
+                                                onClick={() => setSelectedAddedBy("all")}
                                                 className={cn(
-                                                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                                                    isSelected
+                                                    "rounded-lg px-2 py-1 text-xs font-medium transition-colors",
+                                                    selectedAddedBy === "all"
                                                         ? "bg-indigo-600 text-white shadow-sm"
                                                         : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
                                                 )}
                                             >
-                                                {genre} ({count})
+                                                Ambos
                                             </button>
-                                        );
-                                    })}
+                                            {users.map((u) => (
+                                                <button
+                                                    key={u.id}
+                                                    type="button"
+                                                    disabled={rolling}
+                                                    onClick={() => setSelectedAddedBy(u.id)}
+                                                    className={cn(
+                                                        "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
+                                                        selectedAddedBy === u.id
+                                                            ? "bg-indigo-600 text-white shadow-sm"
+                                                            : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                                    )}
+                                                >
+                                                    <Avatar src={u.avatar} name={u.name} size="sm" className="h-3.5 w-3.5 text-[6px]" />
+                                                    {u.name.split(" ")[0]}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-1">
+                                        <Clock size={12} className="text-gray-400" />
+                                        {DURATION_OPTIONS.map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                disabled={rolling}
+                                                onClick={() => setSelectedDuration(opt.id)}
+                                                className={cn(
+                                                    "rounded-lg px-2 py-1 text-xs font-medium transition-colors",
+                                                    selectedDuration === opt.id
+                                                        ? "bg-indigo-600 text-white shadow-sm"
+                                                        : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                                )}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
+
+                                {/* Gênero */}
+                                {availableGenres.length > 0 && (
+                                    <div className="border-t border-gray-200/60 pt-2.5 dark:border-gray-700/50">
+                                        <div className="mb-1.5 flex items-center justify-center gap-1 text-[11px] font-medium text-gray-400">
+                                            <Filter size={11} />
+                                            <span>Gênero:</span>
+                                        </div>
+                                        <div className="flex max-h-20 flex-wrap justify-center gap-1.5 overflow-y-auto">
+                                            <button
+                                                type="button"
+                                                disabled={rolling}
+                                                onClick={() => setSelectedGenre("all")}
+                                                className={cn(
+                                                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                                                    selectedGenre === "all"
+                                                        ? "bg-indigo-600 text-white shadow-sm"
+                                                        : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                                )}
+                                            >
+                                                Todos
+                                            </button>
+                                            {availableGenres.map((genre) => {
+                                                const isSelected = selectedGenre === genre;
+                                                return (
+                                                    <button
+                                                        key={genre}
+                                                        type="button"
+                                                        disabled={rolling}
+                                                        onClick={() => setSelectedGenre(genre)}
+                                                        className={cn(
+                                                            "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                                                            isSelected
+                                                                ? "bg-indigo-600 text-white shadow-sm"
+                                                                : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                                        )}
+                                                    >
+                                                        {genre}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -191,7 +284,6 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                                         transition={{ type: "spring", duration: 0.6, bounce: 0.3 }}
                                         className="flex flex-col items-center gap-5 rounded-3xl border border-gold-400/30 bg-gold-400/5 p-4 shadow-[0_0_40px_-8px_rgba(240,180,50,0.3)] sm:flex-row sm:items-start"
                                     >
-                                        {/* Poster */}
                                         <motion.div
                                             initial={{ rotateY: 90, opacity: 0 }}
                                             animate={{ rotateY: 0, opacity: 1 }}
@@ -212,7 +304,6 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                                                 </span>
                                             )}
                                         </motion.div>
-                                        {/* Info */}
                                         <div className="min-w-0 text-center sm:text-left">
                                             <motion.div
                                                 initial={{ scale: 0 }}
@@ -227,7 +318,10 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                                                 {result.title}
                                             </h4>
                                             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                                {result.release_date ? formatDate(result.release_date) : "Ano desconhecido"}
+                                                {result.release_date ? result.release_date.slice(0, 4) : "Ano desconhecido"}
+                                                {result.runtime && result.runtime > 0
+                                                    ? ` · ${Math.floor(result.runtime / 60)}h ${result.runtime % 60}m`
+                                                    : ""}
                                                 {result.genres.length > 0 && ` · ${result.genres.join(", ")}`}
                                             </p>
                                             {result.overview && (
@@ -239,7 +333,7 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                                     </motion.div>
                                 ) : !hasMovies ? (
                                     <div className="rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
-                                        Nenhum filme de {selectedGenre} na sua lista de interesse.
+                                        Nenhum filme na sua lista corresponde aos filtros selecionados.
                                     </div>
                                 ) : (
                                     <motion.div
@@ -249,7 +343,6 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                                         exit={{ opacity: 0 }}
                                         className="flex flex-col items-center gap-5 sm:flex-row sm:items-start"
                                     >
-                                        {/* Poster em rotação */}
                                         <div className="relative aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-poster ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                                             {previewMovie?.poster_path ? (
                                                 <Image
@@ -275,20 +368,14 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                                                     : "Gire a roleta para sortear um filme da sua lista!"}
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                                                {rolling ? "" : `${eligibleMovies.length} ${eligibleMovies.length === 1 ? "filme" : "filmes"}`}
+                                                {rolling ? "" : `${eligibleMovies.length} ${eligibleMovies.length === 1 ? "filme elegível" : "filmes elegíveis"}`}
                                             </p>
-                                            {selectedGenre !== "all" && (
-                                                <span className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">
-                                                    Gênero selecionado: {selectedGenre}
-                                                </span>
-                                            )}
                                         </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
 
-                        {/* Prévia rápida dos posters enquanto gira */}
                         {rolling && (
                             <div className="mt-4 flex justify-center gap-2 overflow-hidden">
                                 {eligibleMovies.slice(0, 6).map((movie, i) => (
@@ -316,7 +403,6 @@ export function RouletteModal({ open, onClose, movies, initialGenre = "all" }: R
                             </div>
                         )}
 
-                        {/* Ações */}
                         <div className="mt-6 flex flex-wrap justify-center gap-3">
                             {!result && (
                                 <motion.button

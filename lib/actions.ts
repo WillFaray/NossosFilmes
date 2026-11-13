@@ -17,6 +17,7 @@ export interface MovieReviewInput {
     runtime?: number;
     releaseDate?: string;
     overview?: string;
+    removeFromWatchlist?: boolean;
 }
 
 export interface DbUser {
@@ -48,8 +49,10 @@ export interface DbWatchlistItem {
     title: string;
     posterPath: string;
     genres: string[];
+    runtime?: number | null;
     releaseDate?: string | null;
     overview?: string | null;
+    addedById?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -276,12 +279,23 @@ export async function addToWatchlist(input: {
     title: string;
     posterPath: string;
     genres: string[];
+    runtime?: number;
     releaseDate?: string;
     overview?: string;
+    addedById?: string;
 }): Promise<DbWatchlistItem> {
-    const firstUser = await prisma.user.findFirst({ select: { id: true } });
-    if (!firstUser) {
-        throw new Error("Nenhum usuário cadastrado.");
+    let targetUserId = input.addedById?.trim();
+    if (targetUserId) {
+        const userExists = await prisma.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
+        if (!userExists) targetUserId = undefined;
+    }
+
+    if (!targetUserId) {
+        const firstUser = await prisma.user.findFirst({ select: { id: true } });
+        if (!firstUser) {
+            throw new Error("Nenhum usuário cadastrado.");
+        }
+        targetUserId = firstUser.id;
     }
 
     assert(isNonEmptyString(input.tmdbId), "ID do filme inválido.");
@@ -293,9 +307,10 @@ export async function addToWatchlist(input: {
             title: input.title,
             posterPath: input.posterPath,
             genres: JSON.stringify(validateGenres(input.genres)),
+            runtime: input.runtime && input.runtime > 0 ? input.runtime : null,
             releaseDate: input.releaseDate || null,
             overview: input.overview || null,
-            addedById: firstUser.id
+            addedById: targetUserId
         }
     });
 
@@ -346,12 +361,16 @@ export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieRe
     validateReviewInput(input);
     await assertRecommenderExists(input.recommendedById);
 
-    const [, review] = await prisma.$transaction([
-        // Remove o filme da watchlist, se estiver lá
-        prisma.watchlistItem.deleteMany({
-            where: { tmdbId: input.tmdbId }
-        }),
-        prisma.movieReview.create({
+    const shouldRemoveWatchlist = input.removeFromWatchlist !== false;
+
+    const review = await prisma.$transaction(async (tx) => {
+        if (shouldRemoveWatchlist) {
+            await tx.watchlistItem.deleteMany({
+                where: { tmdbId: input.tmdbId }
+            });
+        }
+
+        return tx.movieReview.create({
             data: {
                 tmdbId: input.tmdbId,
                 title: input.title,
@@ -367,8 +386,8 @@ export async function addMovieReview(input: MovieReviewInput): Promise<DbMovieRe
                 overview: input.overview || null,
                 recommendedById: input.recommendedById
             }
-        })
-    ]);
+        });
+    });
 
     revalidatePath("/");
     revalidatePath("/lista-de-interesse");
@@ -600,9 +619,10 @@ export async function importData(raw: unknown): Promise<{ users: number; reviews
                     title: item.title,
                     posterPath: item.posterPath,
                     genres: JSON.stringify(item.genres ?? []),
+                    runtime: typeof item.runtime === "number" && item.runtime > 0 ? item.runtime : null,
                     releaseDate: item.releaseDate || null,
                     overview: item.overview || null,
-                    addedById: firstUser.id
+                    addedById: item.addedById && raw.users.some((u) => u.id === item.addedById) ? item.addedById : firstUser.id
                 }
             })
         ),
@@ -742,20 +762,27 @@ export async function mergeData(
                 }
             });
         }),
-        ...newWatchlist.map((item) =>
-            prisma.watchlistItem.create({
+        ...newWatchlist.map((item) => {
+            const addedBy =
+                item.addedById && item.addedById === importUser1Id
+                    ? defaultRecommenderId
+                    : item.addedById
+                    ? secondRecommenderId
+                    : defaultRecommenderId;
+            return prisma.watchlistItem.create({
                 data: {
                     id: item.id,
                     tmdbId: item.tmdbId,
                     title: item.title,
                     posterPath: item.posterPath,
                     genres: JSON.stringify(item.genres ?? []),
+                    runtime: typeof item.runtime === "number" && item.runtime > 0 ? item.runtime : null,
                     releaseDate: item.releaseDate || null,
                     overview: item.overview || null,
-                    addedById: defaultRecommenderId
+                    addedById: addedBy
                 }
-            })
-        )
+            });
+        })
     ]);
 
     revalidatePath("/");

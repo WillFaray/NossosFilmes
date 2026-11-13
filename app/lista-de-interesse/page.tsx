@@ -1,19 +1,28 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownAZ, Dices, FilterX, ListPlus, Search, X } from "lucide-react";
+import { Dices, FilterX, ListPlus, Search, X } from "lucide-react";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { DropdownOption, DropdownSelect } from "@/components/ui/DropdownSelect";
 import { MovieCard } from "@/components/ui/MovieCard";
-import { RouletteModal } from "@/components/watchlist/RouletteModal";
+import { DurationFilter, matchesDuration, RouletteModal } from "@/components/watchlist/RouletteModal";
 import { WatchlistSearch } from "@/components/watchlist/WatchlistSearch";
+import { WatchlistDetailModal } from "@/components/watchlist/WatchlistDetailModal";
+import type { Movie } from "@/types";
+
+type WatchlistSort = "default" | "title-asc" | "title-desc" | "runtime-asc" | "runtime-desc";
 
 export default function WatchlistPage() {
-    const { watchlist, removeFromWatchlist } = useReviews();
+    const { watchlist, users, removeFromWatchlist } = useReviews();
     const [rouletteOpen, setRouletteOpen] = useState(false);
+    const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedGenre, setSelectedGenre] = useState<string>("all");
-    const [sortBy, setSortBy] = useState<"default" | "title-asc" | "title-desc">("default");
+    const [selectedAddedBy, setSelectedAddedBy] = useState<string>("all");
+    const [selectedDuration, setSelectedDuration] = useState<DurationFilter>("all");
+    const [sortBy, setSortBy] = useState<WatchlistSort>("default");
+
+    const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
     // Gêneros disponíveis na lista com contagem
     const availableGenres = useMemo(() => {
@@ -28,7 +37,6 @@ export default function WatchlistPage() {
             .map(([genre, count]) => ({ genre, count }));
     }, [watchlist]);
 
-    // Opções para o seletor de gênero
     const genreOptions: DropdownOption<string>[] = useMemo(() => {
         return [
             { value: "all", label: `Todos os gêneros (${watchlist.length})` },
@@ -39,36 +47,67 @@ export default function WatchlistPage() {
         ];
     }, [watchlist.length, availableGenres]);
 
-    // Opções de ordenação
-    const sortOptions: DropdownOption<"default" | "title-asc" | "title-desc">[] = [
-        { value: "default", label: "Ordem padrão" },
-        { value: "title-asc", label: "Título (A-Z)" },
-        { value: "title-desc", label: "Título (Z-A)" }
+    const addedByOptions: DropdownOption<string>[] = useMemo(() => {
+        return [
+            { value: "all", label: "Adicionado por: Todos" },
+            ...users.map((u) => ({
+                value: u.id,
+                label: `Por ${u.name.split(" ")[0]}`
+            }))
+        ];
+    }, [users]);
+
+    const durationOptions: DropdownOption<DurationFilter>[] = [
+        { value: "all", label: "Qualquer duração" },
+        { value: "short", label: "Até 1h45 (curtos)" },
+        { value: "medium", label: "Até 2h" },
+        { value: "long", label: "Mais de 2h" }
     ];
 
-    // Filmes filtrados por busca de título, gênero e ordenação
+    const sortOptions: DropdownOption<WatchlistSort>[] = [
+        { value: "default", label: "Ordem padrão" },
+        { value: "title-asc", label: "Título (A-Z)" },
+        { value: "title-desc", label: "Título (Z-A)" },
+        { value: "runtime-asc", label: "Mais curtos" },
+        { value: "runtime-desc", label: "Mais longos" }
+    ];
+
+    // Filmes filtrados
     const filteredWatchlist = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
         const result = watchlist.filter((m) => {
             const matchesTitle = query === "" || m.title.toLowerCase().includes(query);
             const matchesGenre = selectedGenre === "all" || (m.genres ?? []).includes(selectedGenre);
-            return matchesTitle && matchesGenre;
+            const matchesUser = selectedAddedBy === "all" || m.addedBy === selectedAddedBy;
+            const matchesTime = matchesDuration(m.runtime, selectedDuration);
+            return matchesTitle && matchesGenre && matchesUser && matchesTime;
         });
 
         if (sortBy === "title-asc") {
             result.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
         } else if (sortBy === "title-desc") {
             result.sort((a, b) => b.title.localeCompare(a.title, "pt-BR"));
+        } else if (sortBy === "runtime-asc") {
+            result.sort((a, b) => (a.runtime ?? 999) - (b.runtime ?? 999));
+        } else if (sortBy === "runtime-desc") {
+            result.sort((a, b) => (b.runtime ?? 0) - (a.runtime ?? 0));
         }
 
         return result;
-    }, [watchlist, searchQuery, selectedGenre, sortBy]);
+    }, [watchlist, searchQuery, selectedGenre, selectedAddedBy, selectedDuration, sortBy]);
 
-    const hasActiveFilters = searchQuery.trim() !== "" || selectedGenre !== "all" || sortBy !== "default";
+    const hasActiveFilters =
+        searchQuery.trim() !== "" ||
+        selectedGenre !== "all" ||
+        selectedAddedBy !== "all" ||
+        selectedDuration !== "all" ||
+        sortBy !== "default";
 
     const clearFilters = () => {
         setSearchQuery("");
         setSelectedGenre("all");
+        setSelectedAddedBy("all");
+        setSelectedDuration("all");
         setSortBy("default");
     };
 
@@ -94,7 +133,7 @@ export default function WatchlistPage() {
                 <button
                     onClick={() => setRouletteOpen(true)}
                     disabled={watchlist.length === 0}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:from-indigo-500 hover:to-purple-500 hover:shadow-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     <Dices size={18} />
                     Roleta
@@ -106,10 +145,10 @@ export default function WatchlistPage() {
 
             {/* Filtros e Busca interna da Lista */}
             {watchlist.length > 0 && (
-                <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-1 flex-col gap-2.5 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         {/* Busca por título */}
-                        <div className="relative flex-1">
+                        <div className="relative min-w-[200px] flex-1">
                             <Search
                                 size={16}
                                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -134,8 +173,8 @@ export default function WatchlistPage() {
                             )}
                         </div>
 
-                        {/* Seletor de Gênero */}
-                        <div className="w-full sm:w-52">
+                        {/* Gênero */}
+                        <div className="w-full sm:w-48">
                             <DropdownSelect
                                 value={selectedGenre}
                                 options={genreOptions}
@@ -144,8 +183,30 @@ export default function WatchlistPage() {
                             />
                         </div>
 
-                        {/* Seletor de Ordenação */}
-                        <div className="w-full sm:w-44">
+                        {/* Quem adicionou */}
+                        {users.length === 2 && (
+                            <div className="w-full sm:w-44">
+                                <DropdownSelect
+                                    value={selectedAddedBy}
+                                    options={addedByOptions}
+                                    onChange={setSelectedAddedBy}
+                                    ariaLabel="Filtrar por quem adicionou"
+                                />
+                            </div>
+                        )}
+
+                        {/* Duração */}
+                        <div className="w-full sm:w-40">
+                            <DropdownSelect
+                                value={selectedDuration}
+                                options={durationOptions}
+                                onChange={setSelectedDuration}
+                                ariaLabel="Filtrar por duração"
+                            />
+                        </div>
+
+                        {/* Ordenação */}
+                        <div className="w-full sm:w-36">
                             <DropdownSelect
                                 value={sortBy}
                                 options={sortOptions}
@@ -159,16 +220,12 @@ export default function WatchlistPage() {
                             <button
                                 type="button"
                                 onClick={clearFilters}
-                                className="inline-flex items-center gap-1.5 self-start rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white sm:self-auto"
+                                className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
                             >
-                                <FilterX size={14} />
+                                <FilterX size={13} />
                                 Limpar
                             </button>
                         )}
-                    </div>
-
-                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                        {filteredWatchlist.length} de {watchlist.length} {watchlist.length === 1 ? "filme" : "filmes"}
                     </div>
                 </div>
             )}
@@ -177,10 +234,13 @@ export default function WatchlistPage() {
             {watchlist.length > 0 ? (
                 filteredWatchlist.length > 0 ? (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-                        {filteredWatchlist.map((movie) => (
+                        {filteredWatchlist.map((movie, index) => (
                             <MovieCard
                                 key={movie.id}
                                 movie={movie}
+                                index={index}
+                                addedByUser={movie.addedBy ? userMap.get(movie.addedBy) : undefined}
+                                onSelect={(m) => setSelectedMovie(m)}
                                 onRemove={(m) => removeFromWatchlist(m.id)}
                             />
                         ))}
@@ -190,9 +250,6 @@ export default function WatchlistPage() {
                         <FilterX size={40} className="text-gray-300 dark:text-gray-600" />
                         <p className="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">
                             Nenhum filme encontrado com os filtros selecionados.
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Tente buscar outro título ou selecionar outro gênero.
                         </p>
                         <button
                             type="button"
@@ -213,12 +270,24 @@ export default function WatchlistPage() {
                 </div>
             )}
 
+            {/* Modal de Detalhes do Filme na Watchlist */}
+            <WatchlistDetailModal
+                open={Boolean(selectedMovie)}
+                onClose={() => setSelectedMovie(null)}
+                movie={selectedMovie}
+                addedByUser={selectedMovie?.addedBy ? userMap.get(selectedMovie.addedBy) : undefined}
+                onRemove={removeFromWatchlist}
+            />
+
             {/* Modal da Roleta */}
             <RouletteModal
                 open={rouletteOpen}
                 onClose={() => setRouletteOpen(false)}
                 movies={watchlist}
+                users={users}
                 initialGenre={selectedGenre}
+                initialAddedBy={selectedAddedBy}
+                initialDuration={selectedDuration}
             />
         </div>
     );

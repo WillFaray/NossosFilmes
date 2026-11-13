@@ -12,6 +12,7 @@ export interface Movie {
     genres: string[];
     overview?: string;
     runtime?: number;
+    addedBy?: string;
 }
 
 export interface Review {

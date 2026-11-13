@@ -20,6 +20,7 @@ model WatchlistItem {
     title       String
     posterPath  String
     genres      String
+    runtime     Int?
     releaseDate String?
     overview    String?
     createdAt   DateTime @default(now())

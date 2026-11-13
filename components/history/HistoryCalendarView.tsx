@@ -22,13 +22,39 @@ interface DayEntry {
 }
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTHS = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro"
+];
 const MAX_POSTERS_PER_DAY = 3;
 
 export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarViewProps) {
     const { users, updateEntry, deleteEntry } = useReviews();
     const today = useMemo(() => new Date(), []);
-    const [viewYear, setViewYear] = useState(today.getFullYear());
-    const [viewMonth, setViewMonth] = useState(today.getMonth());
+    const [viewYear, setViewYear] = useState(() => {
+        if (entries.length > 0) {
+            const latestYear = Number(entries[0].review.dateWatched.slice(0, 4));
+            if (!isNaN(latestYear)) return latestYear;
+        }
+        return today.getFullYear();
+    });
+    const [viewMonth, setViewMonth] = useState(() => {
+        if (entries.length > 0) {
+            const latestMonth = Number(entries[0].review.dateWatched.slice(5, 7)) - 1;
+            if (!isNaN(latestMonth) && latestMonth >= 0 && latestMonth <= 11) return latestMonth;
+        }
+        return today.getMonth();
+    });
     const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
 
     const activeEntry = useMemo(() => {
@@ -36,11 +62,15 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
         return entries.find((e) => e.review.id === selectedEntry.review.id) ?? selectedEntry;
     }, [entries, selectedEntry]);
 
-
-    const monthName = new Date(viewYear, viewMonth, 1).toLocaleDateString("pt-BR", {
-        month: "long",
-        year: "numeric"
-    });
+    // Anos disponíveis nas avaliações + ano atual
+    const availableYears = useMemo(() => {
+        const yearSet = new Set<number>([today.getFullYear()]);
+        entries.forEach((e) => {
+            const y = Number(e.review.dateWatched.slice(0, 4));
+            if (!isNaN(y) && y > 1900) yearSet.add(y);
+        });
+        return Array.from(yearSet).sort((a, b) => b - a);
+    }, [entries, today]);
 
     // Suporta múltiplos filmes assistidos no mesmo dia
     const entriesByDate = useMemo(() => {
@@ -56,6 +86,12 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
         });
         return map;
     }, [entries]);
+
+    // Quantidade de sessões no mês atualmente aberto
+    const currentMonthCount = useMemo(() => {
+        const prefix = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`;
+        return entries.filter((e) => e.review.dateWatched.startsWith(prefix)).length;
+    }, [entries, viewYear, viewMonth]);
 
     const days = useMemo<DayEntry[]>(() => {
         const firstDay = new Date(viewYear, viewMonth, 1);
@@ -89,11 +125,40 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
 
     return (
         <div>
-            {/* Cabeçalho do calendário */}
-            <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold capitalize text-gray-900 dark:text-gray-100">
-                    {monthName}
-                </h2>
+            {/* Cabeçalho do calendário com seletor rápido de Mês/Ano */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <select
+                        value={viewMonth}
+                        onChange={(e) => setViewMonth(Number(e.target.value))}
+                        aria-label="Selecionar mês"
+                        className="rounded-xl border-0 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-white dark:ring-gray-800"
+                    >
+                        {MONTHS.map((m, idx) => (
+                            <option key={m} value={idx}>
+                                {m}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={viewYear}
+                        onChange={(e) => setViewYear(Number(e.target.value))}
+                        aria-label="Selecionar ano"
+                        className="rounded-xl border-0 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-card-dark dark:text-white dark:ring-gray-800"
+                    >
+                        {availableYears.map((y) => (
+                            <option key={y} value={y}>
+                                {y}
+                            </option>
+                        ))}
+                    </select>
+
+                    <span className="ml-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                        {currentMonthCount} {currentMonthCount === 1 ? "sessão no mês" : "sessões no mês"}
+                    </span>
+                </div>
+
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => changeMonth(-1)}
@@ -145,7 +210,11 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                         return (
                             <div
                                 key={date.toISOString()}
-                                className={index % 7 !== 6 ? "border-r border-b border-gray-100 dark:border-gray-800" : "border-b border-gray-100 dark:border-gray-800"}
+                                className={
+                                    index % 7 !== 6
+                                        ? "border-r border-b border-gray-100 dark:border-gray-800"
+                                        : "border-b border-gray-100 dark:border-gray-800"
+                                }
                             >
                                 {hasEntries ? (
                                     <div className="relative aspect-[3/4] w-full bg-gray-100 dark:bg-gray-800">
@@ -185,7 +254,6 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                                                     </span>
                                                 </button>
                                             ))}
-                                            {/* Indicador de filmes extras */}
                                             {dayEntries.length > MAX_POSTERS_PER_DAY && (
                                                 <button
                                                     onClick={() => setSelectedEntry(dayEntries[MAX_POSTERS_PER_DAY])}
@@ -205,12 +273,17 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                                     </div>
                                 ) : (
                                     <div
-                                        className={`flex aspect-[3/4] w-full items-start justify-center pt-2 text-xs ${inCurrentMonth
-                                            ? "text-gray-500 dark:text-gray-400"
-                                            : "text-gray-300 dark:text-gray-700"
-                                            }`}
+                                        className={`flex aspect-[3/4] w-full items-start justify-center pt-2 text-xs ${
+                                            inCurrentMonth
+                                                ? "text-gray-500 dark:text-gray-400"
+                                                : "text-gray-300 dark:text-gray-700"
+                                        }`}
                                     >
-                                        <span className={`flex h-6 w-6 items-center justify-center rounded-full ${todayClass ? "bg-indigo-600 font-semibold text-white" : ""}`}>
+                                        <span
+                                            className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                                                todayClass ? "bg-indigo-600 font-semibold text-white" : ""
+                                            }`}
+                                        >
                                             {inCurrentMonth ? date.getDate() : ""}
                                         </span>
                                     </div>
@@ -232,7 +305,6 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                 onEdit={updateEntry}
                 onDelete={deleteEntry}
             />
-
         </div>
     );
 }

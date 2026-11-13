@@ -8,9 +8,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Modal } from "@/components/ui/Modal";
 import { StarRating } from "@/components/ui/StarRating";
 
-export type ProfileExpansionType = "favorites" | "disappointments" | "recommendations";
+export type ProfileExpansionType = "favorites" | "disappointments" | "recommendations" | "recent";
 
 interface ProfileExpansionItem {
+    reviewId?: string;
     movie: Movie;
     rating: number;
     otherRating?: number;
@@ -25,6 +26,7 @@ interface ProfileExpansionModalProps {
     items: ProfileExpansionItem[];
     userName: string;
     otherUser: User;
+    onSelectReview?: (reviewId: string) => void;
 }
 
 const config: Record<ProfileExpansionType, { title: string; empty: string }> = {
@@ -39,6 +41,10 @@ const config: Record<ProfileExpansionType, { title: string; empty: string }> = {
     recommendations: {
         title: "Todas as Indicações",
         empty: "Nenhuma indicação feita ainda."
+    },
+    recent: {
+        title: "Histórico de Avaliações",
+        empty: "Nenhum filme avaliado ainda."
     }
 };
 
@@ -48,7 +54,8 @@ export function ProfileExpansionModal({
     type,
     items,
     userName,
-    otherUser
+    otherUser,
+    onSelectReview
 }: ProfileExpansionModalProps) {
     const current = type ? config[type] : null;
 
@@ -68,9 +75,21 @@ export function ProfileExpansionModal({
                     </div>
                 ) : (
                     <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-                        {items.map(({ movie, rating, otherRating, recommender, dateWatched }) => (
-                            <li key={movie.id} className="group">
-                                <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-gray-100 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                        {items.map(({ reviewId, movie, rating, otherRating, recommender, dateWatched }, idx) => (
+                            <li
+                                key={`${movie.id}-${dateWatched ?? idx}`}
+                                onClick={() => {
+                                    if (reviewId && onSelectReview) {
+                                        onSelectReview(reviewId);
+                                    }
+                                }}
+                                className={
+                                    reviewId && onSelectReview
+                                        ? "group cursor-pointer"
+                                        : "group"
+                                }
+                            >
+                                <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-gray-100 shadow-sm ring-1 ring-gray-200 transition-transform duration-200 group-hover:-translate-y-0.5 dark:bg-gray-800 dark:ring-gray-700">
                                     {movie.poster_path ? (
                                         <Image
                                             src={getPosterUrl(movie.poster_path, "w342")}
@@ -85,7 +104,7 @@ export function ProfileExpansionModal({
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-1.5 line-clamp-1 text-xs font-medium text-gray-900 dark:text-gray-100">
+                                <p className="mt-1.5 line-clamp-1 text-xs font-semibold text-gray-900 dark:text-gray-100">
                                     {movie.title}
                                 </p>
 
@@ -95,7 +114,7 @@ export function ProfileExpansionModal({
                                         Indicado por {recommender.name.split(" ")[0]}
                                     </div>
                                 )}
-                                {type === "recommendations" && dateWatched && (
+                                {(type === "recommendations" || type === "recent") && dateWatched && (
                                     <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">
                                         {formatDate(dateWatched)}
                                     </p>
@@ -103,8 +122,8 @@ export function ProfileExpansionModal({
 
                                 <div className="mt-1 flex items-center gap-1.5">
                                     <StarRating rating={rating} size={12} />
-                                    <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
-                                        {rating.toFixed(1).replace(".", ",")}
+                                    <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                                        {rating.toFixed(1)}
                                     </span>
                                 </div>
                                 {type === "recommendations" && otherRating !== undefined && (
@@ -116,7 +135,7 @@ export function ProfileExpansionModal({
                                             className="h-3.5 w-3.5 text-[6px]"
                                         />
                                         <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                                            {otherUser.name.split(" ")[0]} deu
+                                            {otherUser.name.split(" ")[0]}:
                                         </span>
                                         <StarRating rating={otherRating} size={10} />
                                     </div>

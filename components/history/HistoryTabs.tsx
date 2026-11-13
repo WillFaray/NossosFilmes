@@ -5,12 +5,14 @@ import {
     ArrowDownAZ,
     ArrowUpAZ,
     CalendarDays,
+    Clock,
     FilterX,
     LayoutGrid,
     List,
     RotateCcw,
     Search,
     Star,
+    Trophy,
     Tv,
     X
 } from "lucide-react";
@@ -48,6 +50,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     const [activeView, setActiveView] = useState<HistoryView>("list");
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<SortOption>("date-desc");
+    const [yearFilter, setYearFilter] = useState<string>("all");
     const [recommenderFilter, setRecommenderFilter] = useState<string>("all");
     const [genreFilter, setGenreFilter] = useState<string>("all");
     const [platformFilter, setPlatformFilter] = useState<string>("all");
@@ -55,6 +58,20 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     const [minRating, setMinRating] = useState<number>(0);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+
+    // Anos disponíveis nos registros
+    const availableYears = useMemo(() => {
+        const map = new Map<string, number>();
+        entries.forEach((e) => {
+            const y = e.review.dateWatched.slice(0, 4);
+            if (/^\d{4}$/.test(y)) {
+                map.set(y, (map.get(y) ?? 0) + 1);
+            }
+        });
+        return Array.from(map.entries())
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([year, count]) => ({ year, count }));
+    }, [entries]);
 
     // Gêneros disponíveis nos registros atuais
     const availableGenres = useMemo(() => {
@@ -88,6 +105,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
     const hasActiveFilters =
         Boolean(searchQuery.trim()) ||
+        yearFilter !== "all" ||
         recommenderFilter !== "all" ||
         genreFilter !== "all" ||
         platformFilter !== "all" ||
@@ -98,6 +116,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
     const clearFilters = () => {
         setSearchQuery("");
+        setYearFilter("all");
         setRecommenderFilter("all");
         setGenreFilter("all");
         setPlatformFilter("all");
@@ -114,6 +133,10 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         if (searchQuery.trim()) {
             const query = searchQuery.trim().toLowerCase();
             result = result.filter((e) => e.movie.title.toLowerCase().includes(query));
+        }
+
+        if (yearFilter !== "all") {
+            result = result.filter((e) => e.review.dateWatched.startsWith(yearFilter));
         }
 
         if (recommenderFilter !== "all") {
@@ -172,7 +195,56 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         }
 
         return result;
-    }, [entries, searchQuery, sortBy, recommenderFilter, genreFilter, platformFilter, rewatchOnly, minRating, dateFrom, dateTo]);
+    }, [
+        entries,
+        searchQuery,
+        sortBy,
+        yearFilter,
+        recommenderFilter,
+        genreFilter,
+        platformFilter,
+        rewatchOnly,
+        minRating,
+        dateFrom,
+        dateTo
+    ]);
+
+    // Retrospectiva do ano selecionado
+    const yearSummary = useMemo(() => {
+        if (yearFilter === "all") return null;
+        const yearEntries = entries.filter((e) => e.review.dateWatched.startsWith(yearFilter));
+        if (yearEntries.length === 0) return null;
+
+        let totalMinutes = 0;
+        let ratingSum = 0;
+        let bestEntry = yearEntries[0];
+        let bestAvg = (bestEntry.review.ratingUser1 + bestEntry.review.ratingUser2) / 2;
+
+        for (const e of yearEntries) {
+            const r = e.review.runtime ?? e.movie.runtime ?? 110;
+            totalMinutes += r > 0 ? r : 110;
+            const avg = (e.review.ratingUser1 + e.review.ratingUser2) / 2;
+            ratingSum += avg;
+            if (avg > bestAvg) {
+                bestAvg = avg;
+                bestEntry = e;
+            }
+        }
+
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        const formattedTime =
+            hours === 0 ? `${mins}m` : mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+
+        return {
+            year: yearFilter,
+            count: yearEntries.length,
+            formattedTime,
+            avgRating: ratingSum / yearEntries.length,
+            bestMovie: bestEntry.movie.title,
+            bestRating: bestAvg
+        };
+    }, [entries, yearFilter]);
 
     // Visão calendário sempre usa entradas completas ordenadas
     const calendarEntries = useMemo(
@@ -184,28 +256,117 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
     return (
         <div>
-            {/* Tabs */}
-            <div className="mb-6 inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800/50">
-                {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeView === tab.id;
-                    return (
+            {/* Tabs + Filtro rápido de Ano */}
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800/50">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeView === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveView(tab.id)}
+                                className={cn(
+                                    "relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                    isActive
+                                        ? "bg-white text-gray-900 shadow-sm dark:bg-card-dark dark:text-white"
+                                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                )}
+                            >
+                                <Icon size={16} />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {showToolbar && availableYears.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="mr-1 text-xs font-medium text-gray-400 dark:text-gray-500">
+                            Ano:
+                        </span>
                         <button
-                            key={tab.id}
-                            onClick={() => setActiveView(tab.id)}
+                            type="button"
+                            onClick={() => setYearFilter("all")}
                             className={cn(
-                                "relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
-                                isActive
-                                    ? "bg-white text-gray-900 shadow-sm dark:bg-card-dark dark:text-white"
-                                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                                yearFilter === "all"
+                                    ? "bg-indigo-600 text-white shadow-sm"
+                                    : "bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-card-dark dark:text-gray-300 dark:ring-gray-800 dark:hover:bg-gray-800"
                             )}
                         >
-                            <Icon size={16} />
-                            {tab.label}
+                            Todos
                         </button>
-                    );
-                })}
+                        {availableYears.map(({ year, count }) => (
+                            <button
+                                key={year}
+                                type="button"
+                                onClick={() => setYearFilter(year === yearFilter ? "all" : year)}
+                                className={cn(
+                                    "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                                    yearFilter === year
+                                        ? "bg-indigo-600 text-white shadow-sm"
+                                        : "bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-card-dark dark:text-gray-300 dark:ring-gray-800 dark:hover:bg-gray-800"
+                                )}
+                            >
+                                {year}{" "}
+                                <span
+                                    className={cn(
+                                        "text-[10px]",
+                                        yearFilter === year ? "text-indigo-200" : "text-gray-400"
+                                    )}
+                                >
+                                    ({count})
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
+
+            {/* Banner de Retrospectiva quando um Ano específico está ativo */}
+            {showToolbar && yearSummary && (
+                <div className="mb-6 grid grid-cols-2 gap-3 rounded-2xl bg-indigo-50/60 p-4 ring-1 ring-indigo-200/70 dark:bg-indigo-500/5 dark:ring-indigo-500/20 sm:grid-cols-4">
+                    <div>
+                        <p className="text-[11px] font-medium text-indigo-600/80 dark:text-indigo-300/80">
+                            Sessões em {yearSummary.year}
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">
+                            {yearSummary.count} {yearSummary.count === 1 ? "filme" : "filmes"}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="flex items-center gap-1 text-[11px] font-medium text-indigo-600/80 dark:text-indigo-300/80">
+                            <Clock size={11} />
+                            Tempo no ano
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">
+                            {yearSummary.formattedTime}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-medium text-indigo-600/80 dark:text-indigo-300/80">
+                            Média de {yearSummary.year}
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1 text-lg font-bold text-gray-900 dark:text-white">
+                            {yearSummary.avgRating.toFixed(1)}
+                            <Star size={13} className="fill-gold-400 text-gold-400" />
+                        </p>
+                    </div>
+                    <div className="min-w-0">
+                        <p className="flex items-center gap-1 text-[11px] font-medium text-indigo-600/80 dark:text-indigo-300/80">
+                            <Trophy size={11} />
+                            Destaque de {yearSummary.year}
+                        </p>
+                        <p className="mt-0.5 truncate text-sm font-bold text-gray-900 dark:text-white">
+                            {yearSummary.bestMovie}{" "}
+                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                                ({yearSummary.bestRating.toFixed(1)}★)
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Barra de ferramentas (Busca, filtros e ordenação) */}
             {showToolbar && (
@@ -319,7 +480,12 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                         : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                                 )}
                             >
-                                <RotateCcw size={12} className={cn(rewatchOnly ? "text-purple-600 dark:text-purple-400" : "text-gray-400")} />
+                                <RotateCcw
+                                    size={12}
+                                    className={cn(
+                                        rewatchOnly ? "text-purple-600 dark:text-purple-400" : "text-gray-400"
+                                    )}
+                                />
                                 Apenas Re-watches
                             </button>
                         </div>
@@ -426,8 +592,8 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
             {/* Conteúdo com transição */}
             <div key={activeView} className="animate-slideUp">
-                {activeView === "list" && (
-                    filteredSortedEntries.length > 0 ? (
+                {activeView === "list" &&
+                    (filteredSortedEntries.length > 0 ? (
                         <HistoryListView entries={filteredSortedEntries} user1={user1} user2={user2} />
                     ) : (
                         <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
@@ -448,10 +614,9 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 </button>
                             )}
                         </div>
-                    )
-                )}
-                {activeView === "grid" && (
-                    filteredSortedEntries.length > 0 ? (
+                    ))}
+                {activeView === "grid" &&
+                    (filteredSortedEntries.length > 0 ? (
                         <HistoryGridView entries={filteredSortedEntries} user1={user1} user2={user2} />
                     ) : (
                         <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
@@ -472,8 +637,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 </button>
                             )}
                         </div>
-                    )
-                )}
+                    ))}
                 {activeView === "calendar" && (
                     <HistoryCalendarView entries={calendarEntries} user1={user1} user2={user2} />
                 )}

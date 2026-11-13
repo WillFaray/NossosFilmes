@@ -6,10 +6,13 @@ import Image from "next/image";
 import type { Movie } from "@/types";
 import { getPosterUrl } from "@/lib/utils";
 import { useReviews } from "@/components/reviews/ReviewProvider";
+import { Avatar } from "@/components/ui/Avatar";
+import { cn } from "@/lib/cn";
 
 export function WatchlistSearch() {
-    const { watchlist, addToWatchlist } = useReviews();
+    const { watchlist, users, addToWatchlist } = useReviews();
     const [query, setQuery] = useState("");
+    const [selectedUserId, setSelectedUserId] = useState<string>(() => users[0]?.id ?? "");
     const [results, setResults] = useState<Movie[]>([]);
     const [loading, setLoading] = useState(false);
     const [open, setOpen] = useState(false);
@@ -19,6 +22,12 @@ export function WatchlistSearch() {
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const addedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        if (!selectedUserId && users[0]?.id) {
+            setSelectedUserId(users[0].id);
+        }
+    }, [users, selectedUserId]);
 
     const watchlistIds = useMemo(() => new Set(watchlist.map((m) => m.id)), [watchlist]);
 
@@ -75,7 +84,7 @@ export function WatchlistSearch() {
         if (pendingAddId) return;
         setPendingAddId(movie.id);
         try {
-            await addToWatchlist(movie);
+            await addToWatchlist(movie, selectedUserId || users[0]?.id);
             setRecentlyAdded(movie.id);
 
             if (addedTimeoutRef.current) clearTimeout(addedTimeoutRef.current);
@@ -89,9 +98,41 @@ export function WatchlistSearch() {
 
     return (
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                Buscar e adicionar à lista
-            </label>
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Buscar e adicionar à lista
+                </label>
+
+                {users.length === 2 && (
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                            Adicionado por:
+                        </span>
+                        <div className="inline-flex rounded-xl bg-gray-100 p-0.5 dark:bg-gray-800">
+                            {users.map((u) => {
+                                const isActive = (selectedUserId || users[0]?.id) === u.id;
+                                return (
+                                    <button
+                                        key={u.id}
+                                        type="button"
+                                        onClick={() => setSelectedUserId(u.id)}
+                                        className={cn(
+                                            "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all",
+                                            isActive
+                                                ? "bg-white text-gray-900 shadow-sm dark:bg-card-dark dark:text-white"
+                                                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                        )}
+                                    >
+                                        <Avatar src={u.avatar} name={u.name} size="sm" className="h-4 w-4 text-[7px]" />
+                                        {u.name.split(" ")[0]}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div className="relative">
                 <Search
                     size={18}

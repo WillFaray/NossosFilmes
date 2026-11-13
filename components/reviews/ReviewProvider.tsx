@@ -22,6 +22,7 @@ export interface EntryInput {
     textReview: string;
     recommendedBy: string;
     platform?: string;
+    removeFromWatchlist?: boolean;
 }
 
 interface ReviewProviderValue {
@@ -33,10 +34,9 @@ interface ReviewProviderValue {
     addEntry: (entry: EntryInput) => Promise<void>;
     updateEntry: (id: string, entry: EntryInput) => Promise<void>;
     deleteEntry: (id: string) => Promise<void>;
-    addToWatchlist: (movie: Movie) => Promise<void>;
+    addToWatchlist: (movie: Movie, addedById?: string) => Promise<void>;
     removeFromWatchlist: (id: string) => Promise<void>;
 }
-
 
 interface ReviewProviderProps {
     children: React.ReactNode;
@@ -47,6 +47,19 @@ interface ReviewProviderProps {
 
 const ReviewContext = createContext<ReviewProviderValue | null>(null);
 
+function toWatchlistMovie(item: DbWatchlistItem): Movie {
+    return {
+        id: item.tmdbId,
+        title: item.title,
+        poster_path: item.posterPath,
+        release_date: item.releaseDate ?? "",
+        overview: item.overview ?? undefined,
+        runtime: item.runtime ?? undefined,
+        addedBy: item.addedById ?? undefined,
+        genres: item.genres
+    };
+}
+
 export function ReviewProvider({
     children,
     initialUsers,
@@ -56,19 +69,9 @@ export function ReviewProvider({
     const [users, setUsers] = useState<User[]>(() => initialUsers.map(toAppUser));
     const [reviews, setReviews] = useState<Review[]>(() => initialReviews.map(toAppReview));
     const [watchlist, setWatchlist] = useState<Movie[]>(() =>
-        initialWatchlist.map((item) => ({
-            id: item.tmdbId,
-            title: item.title,
-            poster_path: item.posterPath,
-            release_date: item.releaseDate ?? "",
-            overview: item.overview ?? undefined,
-            genres: item.genres
-        }))
+        initialWatchlist.map(toWatchlistMovie)
     );
 
-    // Dados dos filmes (título, poster, gêneros) por tmdbId.
-    // Mantido em estado para que filmes recém-adicionados apareçam
-    // imediatamente no histórico, sem depender apenas de initialReviews.
     const [movieData, setMovieData] = useState<Map<string, Movie>>(() => {
         const map = new Map<string, Movie>();
         initialReviews.forEach((review) => {
@@ -78,11 +81,8 @@ export function ReviewProvider({
         return map;
     });
 
-    // Mensagem de erro de persistência exibida via Toast
     const [persistError, setPersistError] = useState<string | null>(null);
 
-    // Sincroniza o estado quando os dados server-side mudam
-    // (ex.: após uma importação seguida de router.refresh())
     useEffect(() => {
         setUsers(initialUsers.map(toAppUser));
     }, [initialUsers]);
@@ -98,16 +98,7 @@ export function ReviewProvider({
     }, [initialReviews]);
 
     useEffect(() => {
-        setWatchlist(
-            initialWatchlist.map((item) => ({
-                id: item.tmdbId,
-                title: item.title,
-                poster_path: item.posterPath,
-                release_date: item.releaseDate ?? "",
-                overview: item.overview ?? undefined,
-                genres: item.genres
-            }))
-        );
+        setWatchlist(initialWatchlist.map(toWatchlistMovie));
     }, [initialWatchlist]);
 
     const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -126,7 +117,6 @@ export function ReviewProvider({
         };
     }, []);
 
-    // Filmes são derivados das reviews + dados de filme conhecidos
     const movies = useMemo<Movie[]>(() => {
         const seen = new Set<string>();
         const result: Movie[] = [];
@@ -151,6 +141,7 @@ export function ReviewProvider({
 
     const addEntry = useCallback(async (entry: EntryInput) => {
         try {
+            const shouldRemove = entry.removeFromWatchlist !== false;
             const dbReview = await addMovieReview({
                 tmdbId: entry.movie.id,
                 title: entry.movie.title,
@@ -164,7 +155,8 @@ export function ReviewProvider({
                 runtime: entry.movie.runtime,
                 releaseDate: entry.movie.release_date,
                 overview: entry.movie.overview,
-                recommendedById: entry.recommendedBy
+                recommendedById: entry.recommendedBy,
+                removeFromWatchlist: shouldRemove
             });
 
             upsertMovieData(entry.movie);
@@ -172,7 +164,9 @@ export function ReviewProvider({
                 toAppReview(dbReview),
                 ...prev.filter((r) => r.id !== dbReview.id)
             ]);
-            setWatchlist((prev) => prev.filter((m) => m.id !== dbReview.tmdbId));
+            if (shouldRemove) {
+                setWatchlist((prev) => prev.filter((m) => m.id !== dbReview.tmdbId));
+            }
         } catch (error) {
             console.error("Erro ao salvar registro:", error);
             reportError("Não foi possível salvar o registro. Tente novamente.");
@@ -184,20 +178,42 @@ export function ReviewProvider({
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     }, []);
 
-    const addToWatchlistHandler = useCallback(async (movie: Movie) => {
+    const addToWatchlistHandler = useCallback(async (movie: Movie, addedById?: string) => {
         try {
-            await addToWatchlist({
-                tmdbId: movie.id,
-                title: movie.title,
-                posterPath: movie.poster_path,
-                genres: movie.genres,
-                releaseDate: movie.release_date,
-                overview: movie.overview
+            let enrichedMovie = movie;
+            if (!enrichedMovie.runtime) {
+                try {
+                    const res = await fetch(`/api/movies/${movie.id}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.movie) {
+                            enrichedMovie = {
+                                ...movie,
+                                runtime: data.movie.runtime ?? movie.runtime,
+                                overview: data.movie.overview || movie.overview
+                            };
+                        }
+                    }
+                } catch {
+                    // Continua com os dados básicos caso a consulta extra falhe
+                }
+            }
+
+            const created = await addToWatchlist({
+                tmdbId: enrichedMovie.id,
+                title: enrichedMovie.title,
+                posterPath: enrichedMovie.poster_path,
+                genres: enrichedMovie.genres,
+                runtime: enrichedMovie.runtime,
+                releaseDate: enrichedMovie.release_date,
+                overview: enrichedMovie.overview,
+                addedById
             });
 
+            const watchlistMovie = toWatchlistMovie(created);
             setWatchlist((prev) => {
-                if (prev.some((m) => m.id === movie.id)) return prev;
-                return [movie, ...prev];
+                if (prev.some((m) => m.id === watchlistMovie.id)) return prev;
+                return [watchlistMovie, ...prev];
             });
         } catch (error) {
             console.error("Erro ao adicionar à lista de interesse:", error);
@@ -257,7 +273,6 @@ export function ReviewProvider({
         }
     }, [reportError]);
 
-
     const contextValue = useMemo<ReviewProviderValue>(() => ({
         users,
         movies,
@@ -285,7 +300,6 @@ export function ReviewProvider({
     return (
         <ReviewContext.Provider value={contextValue}>
             {children}
-            {/* Erros globais de persistência */}
             <Toast
                 open={Boolean(persistError)}
                 message={persistError ?? ""}
@@ -294,7 +308,6 @@ export function ReviewProvider({
         </ReviewContext.Provider>
     );
 }
-
 
 export function useReviews(): ReviewProviderValue {
     const ctx = useContext(ReviewContext);
