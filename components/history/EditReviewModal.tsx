@@ -75,7 +75,17 @@ export function EditReviewModal({ open, onClose, review, movie, users, onSave }:
                 ratingUser2,
                 textReview: textReview.trim(),
                 platform: platform.trim() || undefined,
-                recommendedBy
+                recommendedBy,
+                mediaType: review.mediaType,
+                seasonNumber: review.seasonNumber,
+                seasonName: review.seasonName,
+                totalEpisodes: review.totalEpisodes,
+                episodesWatched: review.episodesWatched,
+                runtimePerEpisode: review.runtimePerEpisode,
+                watchedDates: review.watchedDates,
+                status: review.status,
+                abandonedReason: review.abandonedReason,
+                seriesProgressId: review.seriesProgressId
             });
             onClose();
         } catch (error) {

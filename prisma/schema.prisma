@@ -7,44 +7,99 @@ datasource db {
 }
 
 model User {
-    id            String         @id @default(cuid())
-    name          String
-    avatarUrl     String
-    reviews       MovieReview[]  @relation("RecommendedReviews")
-    watchlist     WatchlistItem[]
+    id        String          @id @default(cuid())
+    name      String
+    avatarUrl String
+    reviews   MovieReview[]   @relation("RecommendedReviews")
+    watchlist WatchlistItem[]
 }
 
 model WatchlistItem {
-    id          String   @id @default(cuid())
-    tmdbId      String   @unique
-    title       String
-    posterPath  String
-    genres      String
-    runtime     Int?
-    releaseDate String?
-    overview    String?
-    createdAt   DateTime @default(now())
-    addedById   String
-    addedBy     User     @relation(fields: [addedById], references: [id])
+    id               String   @id @default(cuid())
+    tmdbId           String   @unique
+    title            String
+    posterPath       String
+    genres           String
+    runtime          Int?
+    releaseDate      String?
+    overview         String?
+    mediaType        String   @default("movie") // "movie" | "tv"
+    numberOfSeasons  Int?
+    numberOfEpisodes Int?
+    createdAt        DateTime @default(now())
+    addedById        String
+    addedBy          User     @relation(fields: [addedById], references: [id])
+
+    @@index([mediaType])
 }
 
 model MovieReview {
-    id             String  @id @default(cuid())
-    tmdbId         String
-    title          String
-    posterPath     String
-    dateWatched    String
-    ratingUser1    Float
-    ratingUser2    Float
-    textReview     String
-    genres         String
-    platform       String?
-    runtime        Int?
-    releaseDate    String?
-    overview       String?
-    recommendedById String
-    recommendedBy  User   @relation("RecommendedReviews", fields: [recommendedById], references: [id])
+    id                String   @id @default(cuid())
+    tmdbId            String
+    title             String
+    posterPath        String
+    dateWatched       String   // YYYY-MM-DD
+    ratingUser1       Float
+    ratingUser2       Float
+    textReview        String
+    genres            String
+    platform          String?
+    runtime           Int?     // Total minutes (movie = runtime; series = eps * runtimePerEpisode)
+    releaseDate       String?
+    overview          String?
+    recommendedById   String
+    recommendedBy     User     @relation("RecommendedReviews", fields: [recommendedById], references: [id])
+    mediaType         String   @default("movie") // "movie" | "tv"
+    seasonNumber      Int?     // null for movie or full series
+    seasonName        String?  // e.g. "1ª Temporada"
+    totalEpisodes     Int?
+    episodesWatched   Int?
+    runtimePerEpisode Int?
+    watchedDates      String?  // JSON array ["YYYY-MM-DD", ...]
+    status            String   @default("completed") // "completed" | "abandoned"
+    abandonedReason   String?
+    seriesProgressId  String?
 
     @@index([recommendedById])
     @@index([dateWatched])
+    @@index([mediaType])
+    @@index([status])
+}
+
+model SeriesProgress {
+    id                String          @id @default(cuid())
+    tmdbId            String
+    title             String
+    posterPath        String
+    backdropPath      String?
+    genres            String          // JSON array
+    overview          String?
+    firstAirDate      String?
+    seasonNumber      Int             @default(1)
+    seasonName        String          @default("1ª Temporada")
+    totalEpisodes     Int             @default(1)
+    currentEpisode    Int             @default(0)
+    runtimePerEpisode Int?            @default(45)
+    platform          String?
+    status            String          @default("watching") // "watching" | "completed" | "abandoned"
+    createdAt         DateTime        @default(now())
+    updatedAt         DateTime        @updatedAt
+    checkins          SeriesCheckin[]
+
+    @@index([status])
+    @@index([tmdbId])
+}
+
+model SeriesCheckin {
+    id               String         @id @default(cuid())
+    seriesProgressId String
+    seriesProgress   SeriesProgress @relation(fields: [seriesProgressId], references: [id], onDelete: Cascade)
+    dateWatched      String         // YYYY-MM-DD
+    episodeStart     Int
+    episodeEnd       Int
+    episodeTag       String         // e.g. "S01 • Eps 3-4"
+    createdAt        DateTime       @default(now())
+
+    @@index([dateWatched])
+    @@index([seriesProgressId])
 }

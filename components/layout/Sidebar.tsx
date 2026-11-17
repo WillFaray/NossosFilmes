@@ -49,7 +49,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                             <Clapperboard size={18} />
                         </div>
                         <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">
-                            Nossos<span className="text-gold-gradient">Filmes</span>
+                            Nossos<span className="text-gold-gradient">Momentos</span>
                         </span>
                     </Link>
                     <button

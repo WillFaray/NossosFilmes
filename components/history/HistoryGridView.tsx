@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { FlagOff, RotateCcw, Tv } from "lucide-react";
 import Image from "next/image";
 import type { HistoryEntry, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -28,6 +28,13 @@ export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps)
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
                 {entries.map((entry) => {
                     const { review, movie, isRewatch, sessionNumber } = entry;
+                    const isTv = review.mediaType === "tv" || movie.mediaType === "tv";
+                    const isAbandoned = review.status === "abandoned";
+                    const tvTag = isTv
+                        ? review.seasonNumber
+                            ? `S${String(review.seasonNumber).padStart(2, "0")}`
+                            : review.seasonName || "Série"
+                        : null;
                     return (
                         <li key={review.id} className="group">
                             <button
@@ -36,10 +43,21 @@ export function HistoryGridView({ entries, user1, user2 }: HistoryGridViewProps)
                                 className="relative block aspect-[2/3] w-full overflow-hidden rounded-2xl bg-gray-200 shadow-sm ring-1 ring-gray-200 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg group-hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800 dark:ring-gray-800 dark:group-hover:ring-indigo-500/50"
                                 aria-label={`Ver detalhes de ${movie.title}`}
                             >
-                                {isRewatch && (
+                                {isTv && tvTag ? (
+                                    <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-md backdrop-blur-sm">
+                                        <Tv size={10} />
+                                        {tvTag}
+                                    </div>
+                                ) : isRewatch ? (
                                     <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-purple-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-md backdrop-blur-sm">
                                         <RotateCcw size={10} />
                                         {sessionNumber}ª vez
+                                    </div>
+                                ) : null}
+                                {isAbandoned && (
+                                    <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-amber-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-md backdrop-blur-sm">
+                                        <FlagOff size={9} />
+                                        Aband.
                                     </div>
                                 )}
                                 {movie.poster_path ? (

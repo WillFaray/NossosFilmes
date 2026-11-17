@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Clock, Dices, Filter, PlusCircle, RotateCcw, Sparkles, Users } from "lucide-react";
+import { Clock, Dices, Film, Filter, PlayCircle, PlusCircle, RotateCcw, Sparkles, Tv, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Movie, User } from "@/types";
@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 
 export type DurationFilter = "all" | "short" | "medium" | "long";
+export type RouletteMediaFilter = "all" | "movie" | "tv";
 
 interface RouletteModalProps {
     open: boolean;
@@ -21,6 +22,7 @@ interface RouletteModalProps {
     initialGenre?: string;
     initialAddedBy?: string;
     initialDuration?: DurationFilter;
+    initialMediaType?: RouletteMediaFilter;
 }
 
 const DURATION_OPTIONS: { id: DurationFilter; label: string }[] = [
@@ -46,11 +48,14 @@ export function RouletteModal({
     users = [],
     initialGenre = "all",
     initialAddedBy = "all",
-    initialDuration = "all"
+    initialDuration = "all",
+    initialMediaType = "all"
 }: RouletteModalProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [result, setResult] = useState<Movie | null>(null);
     const [rolling, setRolling] = useState(false);
+    const [selectedMediaType, setSelectedMediaType] =
+        useState<RouletteMediaFilter>(initialMediaType);
     const [selectedGenre, setSelectedGenre] = useState<string>(initialGenre);
     const [selectedAddedBy, setSelectedAddedBy] = useState<string>(initialAddedBy);
     const [selectedDuration, setSelectedDuration] = useState<DurationFilter>(initialDuration);
@@ -69,18 +74,23 @@ export function RouletteModal({
 
     const eligibleMovies = useMemo(() => {
         return movies.filter((m) => {
+            const isTv = m.mediaType === "tv";
+            const matchesType =
+                selectedMediaType === "all" ||
+                (selectedMediaType === "tv" ? isTv : !isTv);
             const matchesGenre = selectedGenre === "all" || (m.genres ?? []).includes(selectedGenre);
             const matchesUser = selectedAddedBy === "all" || m.addedBy === selectedAddedBy;
             const matchesTime = matchesDuration(m.runtime, selectedDuration);
-            return matchesGenre && matchesUser && matchesTime;
+            return matchesType && matchesGenre && matchesUser && matchesTime;
         });
-    }, [movies, selectedGenre, selectedAddedBy, selectedDuration]);
+    }, [movies, selectedMediaType, selectedGenre, selectedAddedBy, selectedDuration]);
 
     useEffect(() => {
         if (open) {
             setCurrentIndex(0);
             setResult(null);
             setRolling(false);
+            setSelectedMediaType(initialMediaType);
             setSelectedGenre(initialGenre);
             setSelectedAddedBy(initialAddedBy);
             setSelectedDuration(initialDuration);
@@ -89,12 +99,12 @@ export function RouletteModal({
         }
 
         return () => clearTimers();
-    }, [open, initialGenre, initialAddedBy, initialDuration]);
+    }, [open, initialMediaType, initialGenre, initialAddedBy, initialDuration]);
 
     useEffect(() => {
         setCurrentIndex(0);
         setResult(null);
-    }, [selectedGenre, selectedAddedBy, selectedDuration]);
+    }, [selectedMediaType, selectedGenre, selectedAddedBy, selectedDuration]);
 
     const spin = () => {
         if (eligibleMovies.length === 0 || rolling) return;
@@ -151,7 +161,7 @@ export function RouletteModal({
                         <Dices size={24} />
                     </motion.div>
                     <h3 className="mt-3 text-lg font-bold text-gray-900 dark:text-white">
-                        Roleta de Filmes
+                        Roleta de Filmes & Séries
                     </h3>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         Deixe a sorte decidir o que assistir hoje!
@@ -160,13 +170,44 @@ export function RouletteModal({
 
                 {movies.length === 0 ? (
                     <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
-                        Adicione filmes à lista de interesse para usar a roleta.
+                        Adicione filmes ou séries à lista de interesse para usar a roleta.
                     </div>
                 ) : (
                     <>
                         {/* Filtros de sorteio */}
                         {!result && (
                             <div className="mt-5 space-y-3 rounded-2xl bg-gray-50 p-3.5 dark:bg-gray-800/40">
+                                {/* Tipo de Mídia: Ambos | Filmes | Séries */}
+                                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                    {(
+                                        [
+                                            { id: "all", label: "Ambos", icon: null },
+                                            { id: "movie", label: "Filmes", icon: Film },
+                                            { id: "tv", label: "Séries", icon: Tv }
+                                        ] as const
+                                    ).map((opt) => {
+                                        const Icon = opt.icon;
+                                        const active = selectedMediaType === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                disabled={rolling}
+                                                onClick={() => setSelectedMediaType(opt.id)}
+                                                className={cn(
+                                                    "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                                                    active
+                                                        ? "bg-indigo-600 text-white shadow-sm"
+                                                        : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-card-dark dark:text-gray-300 dark:hover:bg-gray-700"
+                                                )}
+                                            >
+                                                {Icon && <Icon size={12} />}
+                                                {opt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
                                 {/* Quem adicionou & Duração */}
                                 <div className="flex flex-wrap items-center justify-center gap-3">
                                     {users.length === 2 && (
@@ -333,7 +374,7 @@ export function RouletteModal({
                                     </motion.div>
                                 ) : !hasMovies ? (
                                     <div className="rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
-                                        Nenhum filme na sua lista corresponde aos filtros selecionados.
+                                        Nenhum título na sua lista corresponde aos filtros selecionados.
                                     </div>
                                 ) : (
                                     <motion.div
@@ -365,10 +406,28 @@ export function RouletteModal({
                                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                                 {rolling
                                                     ? "Girando a roleta..."
-                                                    : "Gire a roleta para sortear um filme da sua lista!"}
+                                                    : selectedMediaType === "movie"
+                                                    ? "Gire a roleta para sortear um filme da sua lista!"
+                                                    : selectedMediaType === "tv"
+                                                    ? "Gire a roleta para sortear uma série da sua lista!"
+                                                    : "Gire a roleta para sortear o que assistir hoje!"}
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                                                {rolling ? "" : `${eligibleMovies.length} ${eligibleMovies.length === 1 ? "filme elegível" : "filmes elegíveis"}`}
+                                                {rolling
+                                                    ? ""
+                                                    : `${eligibleMovies.length} ${
+                                                          selectedMediaType === "movie"
+                                                              ? eligibleMovies.length === 1
+                                                                  ? "filme elegível"
+                                                                  : "filmes elegíveis"
+                                                              : selectedMediaType === "tv"
+                                                              ? eligibleMovies.length === 1
+                                                                  ? "série elegível"
+                                                                  : "séries elegíveis"
+                                                              : eligibleMovies.length === 1
+                                                              ? "título elegível"
+                                                              : "títulos elegíveis"
+                                                      }`}
                                             </p>
                                         </div>
                                     </motion.div>
@@ -418,14 +477,35 @@ export function RouletteModal({
                             )}
                             {result && (
                                 <>
-                                    <Link
-                                        href={`/adicionar?tmdbId=${result.id}`}
-                                        onClick={onClose}
-                                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50"
-                                    >
-                                        <PlusCircle size={16} />
-                                        Assistir agora! (Registrar sessão)
-                                    </Link>
+                                    {result.mediaType === "tv" ? (
+                                        <>
+                                            <Link
+                                                href={`/adicionar?tmdbId=${result.id}&mediaType=tv&mode=watching`}
+                                                onClick={onClose}
+                                                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50"
+                                            >
+                                                <PlayCircle size={16} />
+                                                Começar maratona!
+                                            </Link>
+                                            <Link
+                                                href={`/adicionar?tmdbId=${result.id}&mediaType=tv`}
+                                                onClick={onClose}
+                                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-300"
+                                            >
+                                                <PlusCircle size={16} />
+                                                Já assistimos
+                                            </Link>
+                                        </>
+                                    ) : (
+                                        <Link
+                                            href={`/adicionar?tmdbId=${result.id}`}
+                                            onClick={onClose}
+                                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/30 transition-all hover:shadow-accent-500/50"
+                                        >
+                                            <PlusCircle size={16} />
+                                            Assistir agora! (Registrar sessão)
+                                        </Link>
+                                    )}
                                     <motion.button
                                         whileHover={{ scale: 1.03 }}
                                         whileTap={{ scale: 0.97 }}

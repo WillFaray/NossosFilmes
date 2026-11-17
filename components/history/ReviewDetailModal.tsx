@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarDays, Clock, ExternalLink, Loader2, Pencil, RotateCcw, Trash2, Tv, UserCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+    CalendarDays,
+    Clock,
+    ExternalLink,
+    FlagOff,
+    Loader2,
+    Pencil,
+    RotateCcw,
+    Trash2,
+    Tv,
+    UserCheck
+} from "lucide-react";
 import Image from "next/image";
-import type { HistoryEntry, Movie, Review, User } from "@/types";
+import type { HistoryEntry, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
+import { formatDuration, getEntryDurationMinutes } from "@/lib/runtime";
 import { Avatar } from "@/components/ui/Avatar";
 import { Modal } from "@/components/ui/Modal";
 import { StarRating } from "@/components/ui/StarRating";
@@ -22,10 +34,35 @@ interface ReviewDetailModalProps {
     onDelete: (id: string) => Promise<void>;
 }
 
-export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, onEdit, onDelete }: ReviewDetailModalProps) {
+export function ReviewDetailModal({
+    open,
+    onClose,
+    entry,
+    user1,
+    user2,
+    users,
+    onEdit,
+    onDelete
+}: ReviewDetailModalProps) {
     const [editOpen, setEditOpen] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
+
+    const parsedWatchedDates = useMemo(() => {
+        if (!entry?.review.watchedDates) return [];
+        if (Array.isArray(entry.review.watchedDates)) {
+            return [...entry.review.watchedDates].sort();
+        }
+        if (typeof entry.review.watchedDates === "string") {
+            try {
+                const parsed = JSON.parse(entry.review.watchedDates);
+                if (Array.isArray(parsed)) return [...parsed].sort();
+            } catch {
+                // ignora
+            }
+        }
+        return [];
+    }, [entry]);
 
     const handleDelete = async () => {
         if (!entry || deleting) return;
@@ -41,11 +78,19 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
         }
     };
 
+    const isTv =
+        entry?.review.mediaType === "tv" || entry?.movie.mediaType === "tv";
+    const isAbandoned = entry?.review.status === "abandoned";
+    const durationInfo = useMemo(
+        () => (entry ? getEntryDurationMinutes(entry) : { minutes: 0, isEstimated: false }),
+        [entry]
+    );
+
     return (
         <>
             <Modal open={open} onClose={onClose}>
                 {entry && (
-                    <div className="flex max-h-[80vh] flex-col sm:flex-row animate-slideUp">
+                    <div className="flex max-h-[80vh] flex-col animate-slideUp sm:flex-row">
                         {/* Poster */}
                         <div className="relative aspect-[2/3] w-full shrink-0 sm:h-auto sm:w-44">
                             {entry.movie.poster_path ? (
@@ -67,6 +112,36 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                         <div className="flex-1 overflow-y-auto p-5 sm:p-6">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
+                                    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                                        {isTv && (
+                                            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                                                <Tv size={11} />
+                                                {entry.review.seasonName ||
+                                                    (entry.review.seasonNumber
+                                                        ? `${entry.review.seasonNumber}ª Temporada`
+                                                        : "Série")}
+                                            </span>
+                                        )}
+                                        {isTv && entry.review.episodesWatched && (
+                                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                                {entry.review.episodesWatched}
+                                                {entry.review.totalEpisodes
+                                                    ? `/${entry.review.totalEpisodes}`
+                                                    : ""}{" "}
+                                                eps
+                                            </span>
+                                        )}
+                                        {isAbandoned && (
+                                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                                                <FlagOff size={11} />
+                                                Abandonada
+                                                {entry.review.abandonedReason
+                                                    ? `: ${entry.review.abandonedReason}`
+                                                    : ""}
+                                            </span>
+                                        )}
+                                    </div>
+
                                     <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                                         {entry.movie.title}
                                         {entry.movie.release_date && (
@@ -80,11 +155,11 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                     </p>
                                 </div>
                                 <a
-                                    href={`https://www.themoviedb.org/movie/${entry.movie.id}`}
+                                    href={`https://www.themoviedb.org/${isTv ? "tv" : "movie"}/${entry.movie.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white shrink-0"
-                                    title="Ver ficha completa no TMDB (trailer, elenco e direção)"
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+                                    title="Ver ficha completa no TMDB"
                                 >
                                     <span>TMDB</span>
                                     <ExternalLink size={12} />
@@ -94,18 +169,23 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                             <div className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-gray-600 dark:text-gray-300">
                                 <span className="inline-flex items-center gap-1.5">
                                     <CalendarDays size={14} className="text-gray-400" />
-                                    Assistido em {formatDate(entry.review.dateWatched)}
+                                    {parsedWatchedDates.length > 1
+                                        ? `Assistido de ${formatDate(parsedWatchedDates[0])} a ${formatDate(parsedWatchedDates[parsedWatchedDates.length - 1])} (${parsedWatchedDates.length} dias)`
+                                        : `Assistido em ${formatDate(entry.review.dateWatched)}`}
                                 </span>
-                                {entry.isRewatch && (
+                                {entry.isRewatch && !isTv && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-500/10 dark:text-purple-300">
                                         <RotateCcw size={12} />
                                         {entry.sessionNumber}ª sessão ({entry.totalSessions} no total)
                                     </span>
                                 )}
-                                {entry.movie.runtime && entry.movie.runtime > 0 && (
+                                {durationInfo.minutes > 0 && (
                                     <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                                         <Clock size={12} />
-                                        {entry.movie.runtime} min ({Math.floor(entry.movie.runtime / 60)}h {entry.movie.runtime % 60}m)
+                                        {formatDuration(durationInfo.minutes)}
+                                        {isTv && entry.review.runtimePerEpisode
+                                            ? ` (~${entry.review.runtimePerEpisode}m/ep)`
+                                            : ` (${durationInfo.minutes} min)`}
                                     </span>
                                 )}
                                 {entry.review.platform && (
@@ -178,12 +258,14 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                             Excluir este registro?
                                         </span>
                                         <button
+                                            type="button"
                                             onClick={() => setConfirmDelete(false)}
                                             className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                                         >
                                             Cancelar
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={handleDelete}
                                             disabled={deleting}
                                             className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
@@ -204,6 +286,7 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                 ) : (
                                     <>
                                         <button
+                                            type="button"
                                             onClick={() => setEditOpen(true)}
                                             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
                                         >
@@ -211,6 +294,7 @@ export function ReviewDetailModal({ open, onClose, entry, user1, user2, users, o
                                             Editar
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => setConfirmDelete(true)}
                                             className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
                                         >

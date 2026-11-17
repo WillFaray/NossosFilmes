@@ -19,12 +19,24 @@ export function toMovieFromReview(dbReview: DbMovieReview): Movie {
         release_date: dbReview.releaseDate ?? "",
         genres: dbReview.genres,
         overview: dbReview.overview ?? undefined,
-        runtime: dbReview.runtime ?? undefined
+        runtime: dbReview.runtime ?? undefined,
+        mediaType: dbReview.mediaType ?? "movie",
+        runtimePerEpisode: dbReview.runtimePerEpisode ?? undefined
     };
 }
 
 /** Converte uma review do banco para o tipo Review da aplicação */
 export function toAppReview(dbReview: DbMovieReview): Review {
+    let parsedWatchedDates: string[] | string | null = dbReview.watchedDates ?? null;
+    if (typeof dbReview.watchedDates === "string") {
+        try {
+            const parsed = JSON.parse(dbReview.watchedDates);
+            if (Array.isArray(parsed)) parsedWatchedDates = parsed;
+        } catch {
+            // mantém string caso não seja JSON
+        }
+    }
+
     return {
         id: dbReview.id,
         movieId: dbReview.tmdbId,
@@ -36,6 +48,16 @@ export function toAppReview(dbReview: DbMovieReview): Review {
         platform: dbReview.platform ?? undefined,
         runtime: dbReview.runtime ?? undefined,
         overview: dbReview.overview ?? undefined,
-        releaseDate: dbReview.releaseDate ?? undefined
+        releaseDate: dbReview.releaseDate ?? undefined,
+        mediaType: dbReview.mediaType ?? "movie",
+        seasonNumber: dbReview.seasonNumber ?? null,
+        seasonName: dbReview.seasonName ?? null,
+        totalEpisodes: dbReview.totalEpisodes ?? null,
+        episodesWatched: dbReview.episodesWatched ?? null,
+        runtimePerEpisode: dbReview.runtimePerEpisode ?? null,
+        watchedDates: parsedWatchedDates,
+        status: dbReview.status ?? "completed",
+        abandonedReason: dbReview.abandonedReason ?? null,
+        seriesProgressId: dbReview.seriesProgressId ?? null
     };
 }

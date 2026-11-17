@@ -118,7 +118,7 @@ export default function SetupPage() {
                     <Clapperboard size={28} />
                 </div>
                 <h1 className="mt-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    Bem-vindo ao <span className="text-indigo-500">NossosFilmes</span>!
+                    Bem-vindo ao <span className="text-indigo-500">NossosMomentos</span>!
                 </h1>
                 <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
                     Configure os dois perfis que vão registrar e avaliar os filmes assistidos juntos.

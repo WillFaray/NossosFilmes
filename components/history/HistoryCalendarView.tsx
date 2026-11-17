@@ -1,24 +1,39 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Tv } from "lucide-react";
 import Image from "next/image";
-import type { HistoryEntry, User } from "@/types";
+import type { CalendarSessionItem, HistoryEntry, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { ReviewDetailModal } from "./ReviewDetailModal";
+import { CheckInDetailModal } from "@/components/in-progress/CheckInDetailModal";
 
 interface HistoryCalendarViewProps {
     entries: HistoryEntry[];
     user1: User;
     user2: User;
+    mediaFilter?: "all" | "movie" | "tv";
 }
 
-type CalendarEntry = HistoryEntry;
+type CalendarCellItem =
+    | {
+          kind: "review";
+          id: string;
+          dateWatched: string;
+          entry: HistoryEntry;
+          sessionTag?: string;
+      }
+    | {
+          kind: "checkin";
+          id: string;
+          dateWatched: string;
+          session: CalendarSessionItem;
+      };
 
 interface DayEntry {
     date: Date;
-    entries: CalendarEntry[];
+    items: CalendarCellItem[];
 }
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -38,60 +53,183 @@ const MONTHS = [
 ];
 const MAX_POSTERS_PER_DAY = 3;
 
-export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarViewProps) {
-    const { users, updateEntry, deleteEntry } = useReviews();
+export function HistoryCalendarView({
+    entries,
+    user1,
+    user2,
+    mediaFilter = "all"
+}: HistoryCalendarViewProps) {
+    const { users, updateEntry, deleteEntry, allSeriesProgress } = useReviews();
     const today = useMemo(() => new Date(), []);
-    const [viewYear, setViewYear] = useState(() => {
-        if (entries.length > 0) {
-            const latestYear = Number(entries[0].review.dateWatched.slice(0, 4));
-            if (!isNaN(latestYear)) return latestYear;
+
+    // Constrói todas as sessões de check-in de séries
+    const checkinSessions = useMemo<CalendarSessionItem[]>(() => {
+        if (mediaFilter === "movie") return [];
+        const list: CalendarSessionItem[] = [];
+        for (const sp of allSeriesProgress) {
+            for (const checkin of sp.checkins) {
+                list.push({
+                    id: checkin.id,
+                    dateWatched: checkin.dateWatched,
+                    mediaType: "tv",
+                    title: sp.title,
+                    posterPath: sp.posterPath,
+                    sessionTag: checkin.episodeTag,
+                    checkin,
+                    seriesProgress: sp
+                });
+            }
         }
-        return today.getFullYear();
-    });
-    const [viewMonth, setViewMonth] = useState(() => {
-        if (entries.length > 0) {
-            const latestMonth = Number(entries[0].review.dateWatched.slice(5, 7)) - 1;
-            if (!isNaN(latestMonth) && latestMonth >= 0 && latestMonth <= 11) return latestMonth;
+        return list.sort((a, b) => b.dateWatched.localeCompare(a.dateWatched));
+    }, [allSeriesProgress, mediaFilter]);
+
+    const initialViewDate = useMemo(() => {
+        const candidateDates: string[] = [];
+        if (entries.length > 0) candidateDates.push(entries[0].review.dateWatched);
+        if (checkinSessions.length > 0) candidateDates.push(checkinSessions[0].dateWatched);
+        candidateDates.sort((a, b) => b.localeCompare(a));
+
+        if (candidateDates.length > 0) {
+            const latest = candidateDates[0];
+            const y = Number(latest.slice(0, 4));
+            const m = Number(latest.slice(5, 7)) - 1;
+            if (!isNaN(y) && !isNaN(m) && m >= 0 && m <= 11) {
+                return { year: y, month: m };
+            }
         }
-        return today.getMonth();
-    });
-    const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
+        return { year: today.getFullYear(), month: today.getMonth() };
+    }, [entries, checkinSessions, today]);
+
+    const [viewYear, setViewYear] = useState(initialViewDate.year);
+    const [viewMonth, setViewMonth] = useState(initialViewDate.month);
+    const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
+    const [selectedCheckin, setSelectedCheckin] =
+        useState<CalendarSessionItem | null>(null);
 
     const activeEntry = useMemo(() => {
         if (!selectedEntry) return null;
-        return entries.find((e) => e.review.id === selectedEntry.review.id) ?? selectedEntry;
+        return (
+            entries.find((e) => e.review.id === selectedEntry.review.id) ??
+            selectedEntry
+        );
     }, [entries, selectedEntry]);
 
-    // Anos disponíveis nas avaliações + ano atual
+    // Anos disponíveis nas avaliações + check-ins + ano atual
     const availableYears = useMemo(() => {
         const yearSet = new Set<number>([today.getFullYear()]);
         entries.forEach((e) => {
             const y = Number(e.review.dateWatched.slice(0, 4));
             if (!isNaN(y) && y > 1900) yearSet.add(y);
         });
-        return Array.from(yearSet).sort((a, b) => b - a);
-    }, [entries, today]);
-
-    // Suporta múltiplos filmes assistidos no mesmo dia
-    const entriesByDate = useMemo(() => {
-        const map = new Map<string, CalendarEntry[]>();
-        entries.forEach((entry) => {
-            const key = entry.review.dateWatched;
-            const list = map.get(key);
-            if (list) {
-                list.push(entry);
-            } else {
-                map.set(key, [entry]);
-            }
+        checkinSessions.forEach((c) => {
+            const y = Number(c.dateWatched.slice(0, 4));
+            if (!isNaN(y) && y > 1900) yearSet.add(y);
         });
-        return map;
-    }, [entries]);
+        return Array.from(yearSet).sort((a, b) => b - a);
+    }, [entries, checkinSessions, today]);
 
-    // Quantidade de sessões no mês atualmente aberto
+    // Agrupa tanto reviews quanto check-ins de séries por data (YYYY-MM-DD)
+    const itemsByDate = useMemo(() => {
+        const map = new Map<string, CalendarCellItem[]>();
+        const checkinKeySet = new Set<string>();
+
+        const pushItem = (dateKey: string, item: CalendarCellItem) => {
+            const list = map.get(dateKey);
+            if (list) {
+                list.push(item);
+            } else {
+                map.set(dateKey, [item]);
+            }
+        };
+
+        // 1. Adiciona sessões de check-in de séries ("S01 • Eps 3-4")
+        for (const session of checkinSessions) {
+            const spId = session.seriesProgress?.id;
+            const tmdbId = session.seriesProgress?.tmdbId;
+            if (spId) checkinKeySet.add(`sp:${spId}:${session.dateWatched}`);
+            if (tmdbId) checkinKeySet.add(`tmdb:${tmdbId}:${session.dateWatched}`);
+
+            pushItem(session.dateWatched, {
+                kind: "checkin",
+                id: `checkin-${session.id}`,
+                dateWatched: session.dateWatched,
+                session
+            });
+        }
+
+        // 2. Adiciona avaliações (filmes e séries retroativas)
+        for (const entry of entries) {
+            const isTv =
+                entry.review.mediaType === "tv" || entry.movie.mediaType === "tv";
+            if (mediaFilter === "movie" && isTv) continue;
+            if (mediaFilter === "tv" && !isTv) continue;
+
+            const seasonBadge = isTv
+                ? entry.review.seasonNumber
+                    ? `S${String(entry.review.seasonNumber).padStart(2, "0")}${
+                          entry.review.episodesWatched
+                              ? ` • ${entry.review.episodesWatched} eps`
+                              : ""
+                      }`
+                    : entry.review.seasonName || "Série"
+                : undefined;
+
+            // Se a avaliação de série possui watchedDates múltiplos, expande nos dias sem check-in duplicado
+            let datesToRender = [entry.review.dateWatched];
+            if (isTv && entry.review.watchedDates) {
+                if (Array.isArray(entry.review.watchedDates) && entry.review.watchedDates.length > 0) {
+                    datesToRender = entry.review.watchedDates;
+                } else if (typeof entry.review.watchedDates === "string") {
+                    try {
+                        const parsed = JSON.parse(entry.review.watchedDates);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            datesToRender = parsed;
+                        }
+                    } catch {
+                        // mantém dateWatched
+                    }
+                }
+            }
+
+            for (const dateKey of datesToRender) {
+                if (isTv) {
+                    const hasSpCheckin =
+                        entry.review.seriesProgressId &&
+                        checkinKeySet.has(
+                            `sp:${entry.review.seriesProgressId}:${dateKey}`
+                        );
+                    const hasTmdbCheckin = checkinKeySet.has(
+                        `tmdb:${entry.movie.id}:${dateKey}`
+                    );
+                    if (hasSpCheckin || hasTmdbCheckin) {
+                        continue;
+                    }
+                }
+
+                pushItem(dateKey, {
+                    kind: "review",
+                    id: `review-${entry.review.id}-${dateKey}`,
+                    dateWatched: dateKey,
+                    entry,
+                    sessionTag: seasonBadge
+                });
+            }
+        }
+
+        return map;
+    }, [entries, checkinSessions, mediaFilter]);
+
+    // Quantidade total de sessões no mês atualmente aberto
     const currentMonthCount = useMemo(() => {
         const prefix = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`;
-        return entries.filter((e) => e.review.dateWatched.startsWith(prefix)).length;
-    }, [entries, viewYear, viewMonth]);
+        let total = 0;
+        for (const [dateKey, list] of itemsByDate.entries()) {
+            if (dateKey.startsWith(prefix)) {
+                total += list.length;
+            }
+        }
+        return total;
+    }, [itemsByDate, viewYear, viewMonth]);
 
     const days = useMemo<DayEntry[]>(() => {
         const firstDay = new Date(viewYear, viewMonth, 1);
@@ -105,11 +243,11 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
             result.push({
                 date,
-                entries: entriesByDate.get(key) ?? []
+                items: itemsByDate.get(key) ?? []
             });
         }
         return result;
-    }, [viewYear, viewMonth, entriesByDate]);
+    }, [viewYear, viewMonth, itemsByDate]);
 
     const changeMonth = (delta: number) => {
         const newDate = new Date(viewYear, viewMonth + delta, 1);
@@ -122,6 +260,14 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
         date.getDate() === today.getDate() &&
         date.getMonth() === today.getMonth() &&
         date.getFullYear() === today.getFullYear();
+
+    const handleCellItemClick = (item: CalendarCellItem) => {
+        if (item.kind === "checkin") {
+            setSelectedCheckin(item.session);
+        } else {
+            setSelectedEntry(item.entry);
+        }
+    };
 
     return (
         <div>
@@ -155,12 +301,14 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                     </select>
 
                     <span className="ml-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                        {currentMonthCount} {currentMonthCount === 1 ? "sessão no mês" : "sessões no mês"}
+                        {currentMonthCount}{" "}
+                        {currentMonthCount === 1 ? "sessão no mês" : "sessões no mês"}
                     </span>
                 </div>
 
                 <div className="flex items-center gap-1">
                     <button
+                        type="button"
                         onClick={() => changeMonth(-1)}
                         className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                         aria-label="Mês anterior"
@@ -168,6 +316,7 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                         <ChevronLeft size={18} />
                     </button>
                     <button
+                        type="button"
                         onClick={() => {
                             setViewYear(today.getFullYear());
                             setViewMonth(today.getMonth());
@@ -177,6 +326,7 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                         Hoje
                     </button>
                     <button
+                        type="button"
                         onClick={() => changeMonth(1)}
                         className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                         aria-label="Próximo mês"
@@ -202,10 +352,10 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
 
                 {/* Grid de dias */}
                 <div className="grid grid-cols-7">
-                    {days.map(({ date, entries: dayEntries }, index) => {
+                    {days.map(({ date, items: dayItems }, index) => {
                         const inCurrentMonth = isCurrentMonth(date);
                         const todayClass = isToday(date);
-                        const hasEntries = dayEntries.length > 0;
+                        const hasItems = dayItems.length > 0;
 
                         return (
                             <div
@@ -216,52 +366,113 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                                         : "border-b border-gray-100 dark:border-gray-800"
                                 }
                             >
-                                {hasEntries ? (
+                                {hasItems ? (
                                     <div className="relative aspect-[3/4] w-full bg-gray-100 dark:bg-gray-800">
                                         {/* Posters do dia (até MAX_POSTERS_PER_DAY) */}
                                         <div className="flex h-full w-full">
-                                            {dayEntries.slice(0, MAX_POSTERS_PER_DAY).map((entry) => (
-                                                <button
-                                                    key={entry.review.id}
-                                                    onClick={() => setSelectedEntry(entry)}
-                                                    className="group relative min-w-0 flex-1 overflow-hidden transition-all duration-200 hover:z-10 hover:scale-[1.05] hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500"
-                                                    title={`${entry.movie.title} — ${formatDate(entry.review.dateWatched)}`}
-                                                    aria-label={`Ver detalhes de ${entry.movie.title}`}
-                                                >
-                                                    {entry.movie.poster_path ? (
-                                                        <Image
-                                                            src={getPosterUrl(entry.movie.poster_path, "w342")}
-                                                            alt={entry.movie.title}
-                                                            fill
-                                                            sizes="(max-width: 768px) 25vw, 14vw"
-                                                            className="object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-gray-400">
-                                                            {entry.movie.title}
-                                                        </span>
-                                                    )}
-                                                    {entry.isRewatch && (
-                                                        <span
-                                                            className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-white shadow-sm"
-                                                            title={`Re-watch (${entry.sessionNumber}ª vez)`}
+                                            {dayItems
+                                                .slice(0, MAX_POSTERS_PER_DAY)
+                                                .map((cellItem) => {
+                                                    const title =
+                                                        cellItem.kind === "checkin"
+                                                            ? cellItem.session.title
+                                                            : cellItem.entry.movie.title;
+                                                    const posterPath =
+                                                        cellItem.kind === "checkin"
+                                                            ? cellItem.session.posterPath
+                                                            : cellItem.entry.movie.poster_path;
+                                                    const sessionTag =
+                                                        cellItem.kind === "checkin"
+                                                            ? cellItem.session.sessionTag
+                                                            : cellItem.sessionTag;
+                                                    const isRewatch =
+                                                        cellItem.kind === "review" &&
+                                                        cellItem.entry.isRewatch;
+                                                    const isTv =
+                                                        cellItem.kind === "checkin" ||
+                                                        cellItem.entry.review.mediaType ===
+                                                            "tv" ||
+                                                        cellItem.entry.movie.mediaType ===
+                                                            "tv";
+
+                                                    return (
+                                                        <button
+                                                            key={cellItem.id}
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleCellItemClick(cellItem)
+                                                            }
+                                                            className="group relative min-w-0 flex-1 overflow-hidden transition-all duration-200 hover:z-10 hover:scale-[1.05] hover:shadow-lg hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500"
+                                                            title={`${title}${
+                                                                sessionTag
+                                                                    ? ` (${sessionTag})`
+                                                                    : ""
+                                                            } — ${formatDate(
+                                                                cellItem.dateWatched
+                                                            )}`}
+                                                            aria-label={`Ver detalhes de ${title}`}
                                                         >
-                                                            <RotateCcw size={8} />
-                                                        </span>
-                                                    )}
-                                                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/80 to-transparent px-1 pb-1 pt-4 text-left text-[9px] font-medium leading-tight text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                                        {entry.movie.title}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                            {dayEntries.length > MAX_POSTERS_PER_DAY && (
+                                                            {posterPath ? (
+                                                                <Image
+                                                                    src={getPosterUrl(
+                                                                        posterPath,
+                                                                        "w342"
+                                                                    )}
+                                                                    alt={title}
+                                                                    fill
+                                                                    sizes="(max-width: 768px) 25vw, 14vw"
+                                                                    className="object-cover"
+                                                                />
+                                                            ) : (
+                                                                <span className="flex h-full items-center justify-center p-1 text-center text-[9px] leading-tight text-gray-400">
+                                                                    {title}
+                                                                </span>
+                                                            )}
+
+                                                            {/* Indicador de TV ou Rewatch no topo direito */}
+                                                            {isTv ? (
+                                                                <span
+                                                                    className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600/90 text-white shadow-sm backdrop-blur-sm"
+                                                                    title="Série de TV"
+                                                                >
+                                                                    <Tv size={8} />
+                                                                </span>
+                                                            ) : isRewatch ? (
+                                                                <span
+                                                                    className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-white shadow-sm"
+                                                                    title={`Re-watch (${cellItem.entry.sessionNumber}ª vez)`}
+                                                                >
+                                                                    <RotateCcw size={8} />
+                                                                </span>
+                                                            ) : null}
+
+                                                            {/* Etiqueta da sessão de série (ex: S01 • Eps 3-4) */}
+                                                            {sessionTag ? (
+                                                                <span className="pointer-events-none absolute inset-x-0.5 bottom-0.5 z-10 truncate rounded bg-indigo-950/90 px-1 py-0.5 text-center text-[8px] font-bold tracking-tight text-indigo-100 shadow-sm backdrop-blur-sm sm:text-[9px]">
+                                                                    {sessionTag}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-900/80 to-transparent px-1 pb-1 pt-4 text-left text-[9px] font-medium leading-tight text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                                                    {title}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+
+                                            {dayItems.length > MAX_POSTERS_PER_DAY && (
                                                 <button
-                                                    onClick={() => setSelectedEntry(dayEntries[MAX_POSTERS_PER_DAY])}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        handleCellItemClick(
+                                                            dayItems[MAX_POSTERS_PER_DAY]
+                                                        )
+                                                    }
                                                     className="flex w-8 shrink-0 flex-col items-center justify-center bg-gray-200/80 text-[10px] font-semibold text-gray-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:bg-gray-700/80 dark:text-gray-300 dark:hover:bg-indigo-500/10"
-                                                    title={`+${dayEntries.length - MAX_POSTERS_PER_DAY} filme(s) neste dia`}
-                                                    aria-label={`Ver mais ${dayEntries.length - MAX_POSTERS_PER_DAY} filme(s) deste dia`}
+                                                    title={`+${dayItems.length - MAX_POSTERS_PER_DAY} sessão(ões) neste dia`}
+                                                    aria-label={`Ver mais ${dayItems.length - MAX_POSTERS_PER_DAY} sessão(ões) deste dia`}
                                                 >
-                                                    +{dayEntries.length - MAX_POSTERS_PER_DAY}
+                                                    +{dayItems.length - MAX_POSTERS_PER_DAY}
                                                 </button>
                                             )}
                                         </div>
@@ -281,7 +492,9 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                                     >
                                         <span
                                             className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                                                todayClass ? "bg-indigo-600 font-semibold text-white" : ""
+                                                todayClass
+                                                    ? "bg-indigo-600 font-semibold text-white"
+                                                    : ""
                                             }`}
                                         >
                                             {inCurrentMonth ? date.getDate() : ""}
@@ -294,7 +507,7 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                 </div>
             </div>
 
-            {/* Modal de detalhes */}
+            {/* Modal de detalhes de avaliação (Filme ou Temporada concluída) */}
             <ReviewDetailModal
                 open={Boolean(activeEntry)}
                 onClose={() => setSelectedEntry(null)}
@@ -304,6 +517,13 @@ export function HistoryCalendarView({ entries, user1, user2 }: HistoryCalendarVi
                 users={users}
                 onEdit={updateEntry}
                 onDelete={deleteEntry}
+            />
+
+            {/* Modal de detalhes de Check-in de Série em Andamento */}
+            <CheckInDetailModal
+                open={Boolean(selectedCheckin)}
+                onClose={() => setSelectedCheckin(null)}
+                session={selectedCheckin}
             />
         </div>
     );

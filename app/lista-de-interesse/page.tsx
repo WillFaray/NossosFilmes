@@ -1,13 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Dices, FilterX, ListPlus, Search, X } from "lucide-react";
+import { Dices, Film, FilterX, ListPlus, Search, Tv, X } from "lucide-react";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { DropdownOption, DropdownSelect } from "@/components/ui/DropdownSelect";
 import { MovieCard } from "@/components/ui/MovieCard";
-import { DurationFilter, matchesDuration, RouletteModal } from "@/components/watchlist/RouletteModal";
+import {
+    DurationFilter,
+    matchesDuration,
+    RouletteMediaFilter,
+    RouletteModal
+} from "@/components/watchlist/RouletteModal";
 import { WatchlistSearch } from "@/components/watchlist/WatchlistSearch";
 import { WatchlistDetailModal } from "@/components/watchlist/WatchlistDetailModal";
+import { cn } from "@/lib/cn";
 import type { Movie } from "@/types";
 
 type WatchlistSort = "default" | "title-asc" | "title-desc" | "runtime-asc" | "runtime-desc";
@@ -16,6 +22,8 @@ export default function WatchlistPage() {
     const { watchlist, users, removeFromWatchlist } = useReviews();
     const [rouletteOpen, setRouletteOpen] = useState(false);
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+    const [selectedMediaType, setSelectedMediaType] =
+        useState<RouletteMediaFilter>("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedGenre, setSelectedGenre] = useState<string>("all");
     const [selectedAddedBy, setSelectedAddedBy] = useState<string>("all");
@@ -72,15 +80,19 @@ export default function WatchlistPage() {
         { value: "runtime-desc", label: "Mais longos" }
     ];
 
-    // Filmes filtrados
+    // Obras filtradas
     const filteredWatchlist = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
         const result = watchlist.filter((m) => {
+            const isTv = m.mediaType === "tv";
+            const matchesMedia =
+                selectedMediaType === "all" ||
+                (selectedMediaType === "tv" ? isTv : !isTv);
             const matchesTitle = query === "" || m.title.toLowerCase().includes(query);
             const matchesGenre = selectedGenre === "all" || (m.genres ?? []).includes(selectedGenre);
             const matchesUser = selectedAddedBy === "all" || m.addedBy === selectedAddedBy;
             const matchesTime = matchesDuration(m.runtime, selectedDuration);
-            return matchesTitle && matchesGenre && matchesUser && matchesTime;
+            return matchesMedia && matchesTitle && matchesGenre && matchesUser && matchesTime;
         });
 
         if (sortBy === "title-asc") {
@@ -94,9 +106,10 @@ export default function WatchlistPage() {
         }
 
         return result;
-    }, [watchlist, searchQuery, selectedGenre, selectedAddedBy, selectedDuration, sortBy]);
+    }, [watchlist, selectedMediaType, searchQuery, selectedGenre, selectedAddedBy, selectedDuration, sortBy]);
 
     const hasActiveFilters =
+        selectedMediaType !== "all" ||
         searchQuery.trim() !== "" ||
         selectedGenre !== "all" ||
         selectedAddedBy !== "all" ||
@@ -104,6 +117,7 @@ export default function WatchlistPage() {
         sortBy !== "default";
 
     const clearFilters = () => {
+        setSelectedMediaType("all");
         setSearchQuery("");
         setSelectedGenre("all");
         setSelectedAddedBy("all");
@@ -124,8 +138,8 @@ export default function WatchlistPage() {
                     </h1>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                         {hasActiveFilters
-                            ? `Exibindo ${filteredWatchlist.length} de ${watchlist.length} ${watchlist.length === 1 ? "filme" : "filmes"}`
-                            : `${watchlist.length} ${watchlist.length === 1 ? "filme" : "filmes"} na lista para assistir`}
+                            ? `Exibindo ${filteredWatchlist.length} de ${watchlist.length} ${watchlist.length === 1 ? "título" : "títulos"}`
+                            : `${watchlist.length} ${watchlist.length === 1 ? "título" : "títulos"} na lista para assistir`}
                     </p>
                 </div>
 
@@ -146,6 +160,36 @@ export default function WatchlistPage() {
             {/* Filtros e Busca interna da Lista */}
             {watchlist.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
+                    {/* Filtro rápido de Tipo: Todos | Filmes | Séries */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {(
+                            [
+                                { id: "all", label: "Todos", icon: null },
+                                { id: "movie", label: "Filmes", icon: Film },
+                                { id: "tv", label: "Séries", icon: Tv }
+                            ] as const
+                        ).map((opt) => {
+                            const Icon = opt.icon;
+                            const active = selectedMediaType === opt.id;
+                            return (
+                                <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => setSelectedMediaType(opt.id)}
+                                    className={cn(
+                                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                                        active
+                                            ? "bg-indigo-600 text-white shadow-sm"
+                                            : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    )}
+                                >
+                                    {Icon && <Icon size={13} />}
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
                     <div className="flex flex-wrap items-center gap-2.5">
                         {/* Busca por título */}
                         <div className="relative min-w-[200px] flex-1">
@@ -249,7 +293,11 @@ export default function WatchlistPage() {
                     <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
                         <FilterX size={40} className="text-gray-300 dark:text-gray-600" />
                         <p className="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Nenhum filme encontrado com os filtros selecionados.
+                            {selectedMediaType === "movie"
+                                ? "Nenhum filme encontrado com os filtros selecionados."
+                                : selectedMediaType === "tv"
+                                ? "Nenhuma série encontrada com os filtros selecionados."
+                                : "Nenhum título encontrado com os filtros selecionados."}
                         </p>
                         <button
                             type="button"
@@ -265,7 +313,7 @@ export default function WatchlistPage() {
                 <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
                     <ListPlus size={40} className="text-gray-300 dark:text-gray-600" />
                     <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Nenhum filme na lista de interesse ainda. Busque acima para adicionar.
+                        Nenhum título na lista de interesse ainda. Busque acima para adicionar.
                     </p>
                 </div>
             )}
@@ -285,6 +333,7 @@ export default function WatchlistPage() {
                 onClose={() => setRouletteOpen(false)}
                 movies={watchlist}
                 users={users}
+                initialMediaType={selectedMediaType}
                 initialGenre={selectedGenre}
                 initialAddedBy={selectedAddedBy}
                 initialDuration={selectedDuration}

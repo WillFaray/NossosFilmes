@@ -14,7 +14,7 @@ export default function AddEntryPage() {
                     Adicionar Registro
                 </h1>
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Busque um filme no TMDB e registre a sessão assistida
+                    Busque um filme ou série no TMDB e registre a sessão ou maratona do casal
                 </p>
             </div>
 

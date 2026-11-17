@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check, Clock, Loader2, PlusCircle, Trash2, X } from "lucide-react";
+import { Check, Clock, Loader2, PlayCircle, PlusCircle, Trash2, Tv, X } from "lucide-react";
 import type { Movie, User } from "@/types";
 import { getPosterUrl } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
@@ -30,6 +30,10 @@ export function MovieCard({
     const [removing, setRemoving] = useState(false);
 
     const releaseYear = movie.release_date ? movie.release_date.slice(0, 4) : null;
+    const isTv = movie.mediaType === "tv";
+    const addUrl = isTv
+        ? `/adicionar?tmdbId=${movie.id}&mediaType=tv`
+        : `/adicionar?tmdbId=${movie.id}`;
 
     const handleRemoveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -82,6 +86,18 @@ export function MovieCard({
                 )}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
+                {/* Selo de Série */}
+                {isTv && !confirming && (
+                    <div className="pointer-events-none absolute bottom-2 right-2 z-[4] flex items-center gap-1 rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
+                        <Tv size={10} />
+                        <span>
+                            {movie.numberOfSeasons
+                                ? `${movie.numberOfSeasons} temp.`
+                                : "Série"}
+                        </span>
+                    </div>
+                )}
+
                 {/* Quem adicionou (badge discreto no canto inferior esquerdo do pôster) */}
                 {addedByUser && !confirming && (
                     <div
@@ -117,6 +133,7 @@ export function MovieCard({
                                 </p>
                                 <div className="flex gap-2">
                                     <button
+                                        type="button"
                                         onClick={handleCancelRemove}
                                         className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
                                         aria-label="Cancelar"
@@ -125,6 +142,7 @@ export function MovieCard({
                                         <X size={15} />
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={handleConfirmRemove}
                                         className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-500"
                                         aria-label="Confirmar remoção"
@@ -141,9 +159,9 @@ export function MovieCard({
                 {/* Botão registrar sessão */}
                 {!confirming && (
                     <Link
-                        href={`/adicionar?tmdbId=${movie.id}`}
+                        href={addUrl}
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute left-2 top-2 z-[5] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-indigo-600 group-hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                        className="absolute left-2 top-2 z-[5] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 group-hover:opacity-100"
                         aria-label={`Registrar sessão de ${movie.title}`}
                         title="Registrar que assistimos"
                     >
@@ -154,9 +172,10 @@ export function MovieCard({
                 {/* Botão remover */}
                 {onRemove && !confirming && (
                     <button
+                        type="button"
                         onClick={handleRemoveClick}
                         disabled={removing}
-                        className="absolute right-2 top-2 z-[5] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-red-600 group-hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                        className="absolute right-2 top-2 z-[5] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 group-hover:opacity-100"
                         aria-label={`Remover ${movie.title} da lista`}
                         title="Remover da lista"
                     >
@@ -182,7 +201,9 @@ export function MovieCard({
                     {movie.runtime && movie.runtime > 0 ? (
                         <span className="inline-flex items-center gap-1">
                             <Clock size={11} />
-                            {Math.floor(movie.runtime / 60) > 0
+                            {isTv
+                                ? `~${movie.runtime}m/ep`
+                                : Math.floor(movie.runtime / 60) > 0
                                 ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`
                                 : `${movie.runtime}m`}
                         </span>
@@ -200,15 +221,34 @@ export function MovieCard({
                     ))}
                 </div>
 
-                {/* Ação rápida para registrar que já assistiram */}
-                <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2.5 dark:border-gray-800">
-                    <Link
-                        href={`/adicionar?tmdbId=${movie.id}`}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
-                    >
-                        <Check size={14} />
-                        Já assistimos!
-                    </Link>
+                {/* Ações rápidas */}
+                <div className="mt-3 flex items-center gap-1.5 border-t border-gray-100 pt-2.5 dark:border-gray-800">
+                    {isTv ? (
+                        <>
+                            <Link
+                                href={`/adicionar?tmdbId=${movie.id}&mediaType=tv&mode=watching`}
+                                className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500"
+                            >
+                                <PlayCircle size={13} />
+                                Começar
+                            </Link>
+                            <Link
+                                href={addUrl}
+                                className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-50 py-1.5 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                            >
+                                <Check size={13} />
+                                Já vimos
+                            </Link>
+                        </>
+                    ) : (
+                        <Link
+                            href={addUrl}
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                        >
+                            <Check size={14} />
+                            Já assistimos!
+                        </Link>
+                    )}
                 </div>
             </div>
         </motion.article>

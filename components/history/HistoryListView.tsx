@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, MoreVertical, RotateCcw, Tv } from "lucide-react";
+import { CalendarDays, FlagOff, MoreVertical, RotateCcw, Tv } from "lucide-react";
 import Image from "next/image";
 import type { HistoryEntry, User } from "@/types";
 import { formatDate, getPosterUrl } from "@/lib/utils";
@@ -30,6 +30,14 @@ export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps)
             <ul className="space-y-3">
                 {entries.map((entry) => {
                     const { review, movie, recommender, isRewatch, sessionNumber } = entry;
+                    const isTv = review.mediaType === "tv" || movie.mediaType === "tv";
+                    const isAbandoned = review.status === "abandoned";
+                    const seasonLabel = isTv
+                        ? review.seasonName ||
+                          (review.seasonNumber
+                              ? `${review.seasonNumber}ª Temporada`
+                              : "Série")
+                        : null;
                     return (
                         <li key={review.id} className="group">
                             <button
@@ -66,7 +74,22 @@ export function HistoryListView({ entries, user1, user2 }: HistoryListViewProps)
                                                 ({movie.release_date.slice(0, 4)})
                                             </span>
                                         )}
-                                        {isRewatch && (
+                                        {isTv && seasonLabel && (
+                                            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/30">
+                                                <Tv size={10} />
+                                                {seasonLabel}
+                                                {review.episodesWatched
+                                                    ? ` • ${review.episodesWatched} eps`
+                                                    : ""}
+                                            </span>
+                                        )}
+                                        {isAbandoned && (
+                                            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30">
+                                                <FlagOff size={10} />
+                                                Abandonada
+                                            </span>
+                                        )}
+                                        {isRewatch && !isTv && (
                                             <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 ring-1 ring-inset ring-purple-600/20 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-500/30">
                                                 <RotateCcw size={10} />
                                                 {sessionNumber}ª vez

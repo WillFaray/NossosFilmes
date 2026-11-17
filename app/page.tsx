@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import { Clock, History } from "lucide-react";
 import { useReviews } from "@/components/reviews/ReviewProvider";
 import { HistoryTabs } from "@/components/history/HistoryTabs";
+import { InProgressSection } from "@/components/in-progress/InProgressSection";
 import { Avatar } from "@/components/ui/Avatar";
 import { formatDate } from "@/lib/utils";
+import { getEntryDurationMinutes, formatDuration } from "@/lib/runtime";
 import type { HistoryEntry, Review } from "@/types";
 
 export default function HistoryPage() {
@@ -57,38 +59,35 @@ export default function HistoryPage() {
     }, [reviews, movies, users, user1]);
 
     const totalMovies = reviews.length;
+    const moviesOnlyCount = useMemo(
+        () => reviews.filter((r) => !r.mediaType || r.mediaType === "movie").length,
+        [reviews]
+    );
+    const seriesOnlyCount = useMemo(
+        () => reviews.filter((r) => r.mediaType === "tv").length,
+        [reviews]
+    );
     const uniqueMoviesCount = useMemo(() => new Set(reviews.map((r) => r.movieId)).size, [reviews]);
     const rewatchSessionsCount = totalMovies - uniqueMoviesCount;
 
-    // Cálculo do total de horas assistidas juntas (usando runtime do filme ou média padrão de 110min)
+    // Cálculo do total de horas assistidas juntas (filmes + episódios de séries)
     const runtimeStats = useMemo(() => {
-        const DEFAULT_RUNTIME = 110;
         let totalMinutes = 0;
         let estimatedCount = 0;
 
         for (const entry of entries) {
-            if (entry.movie.runtime && entry.movie.runtime > 0) {
-                totalMinutes += entry.movie.runtime;
-            } else {
-                totalMinutes += DEFAULT_RUNTIME;
-                estimatedCount++;
-            }
+            const { minutes, isEstimated } = getEntryDurationMinutes(entry);
+            totalMinutes += minutes;
+            if (isEstimated) estimatedCount++;
         }
 
         const totalHours = Math.floor(totalMinutes / 60);
         const remainingMinutes = totalMinutes % 60;
 
-        const formattedTime =
-            totalHours === 0
-                ? `${remainingMinutes}min`
-                : remainingMinutes === 0
-                ? `${totalHours}h`
-                : `${totalHours}h ${remainingMinutes}m`;
-
         return {
             totalHours,
             remainingMinutes,
-            formattedTime,
+            formattedTime: formatDuration(totalMinutes),
             isEstimated: estimatedCount > 0
         };
     }, [entries]);
@@ -105,7 +104,9 @@ export default function HistoryPage() {
                         Histórico
                     </h1>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        {totalMovies} {totalMovies === 1 ? "filme assistido" : "filmes assistidos"} até agora
+                        {seriesOnlyCount > 0
+                            ? `${moviesOnlyCount} ${moviesOnlyCount === 1 ? "filme" : "filmes"} e ${seriesOnlyCount} ${seriesOnlyCount === 1 ? "temporada/série" : "temporadas/séries"} até agora`
+                            : `${totalMovies} ${totalMovies === 1 ? "filme assistido" : "filmes assistidos"} até agora`}
                     </p>
                 </div>
 
@@ -125,28 +126,33 @@ export default function HistoryPage() {
                 </div>
             </div>
 
+            {/* Bloco "Assistindo no momento" (Séries em Andamento) */}
+            <InProgressSection />
+
             {/* Resumo geral */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* 1. Total de Filmes / Sessões */}
+                {/* 1. Total de Obras / Sessões */}
                 <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
                     <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Filmes assistidos
+                        {seriesOnlyCount > 0 ? "Obras assistidas" : "Filmes assistidos"}
                     </p>
                     <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{totalMovies}</p>
                     <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                         {totalMovies === 0
-                            ? "Nenhum filme registrado"
+                            ? "Nenhum registro ainda"
+                            : seriesOnlyCount > 0
+                            ? `${moviesOnlyCount} filmes • ${seriesOnlyCount} ${seriesOnlyCount === 1 ? "série" : "séries"}`
                             : rewatchSessionsCount > 0
                             ? `${uniqueMoviesCount} títulos (${rewatchSessionsCount} ${rewatchSessionsCount === 1 ? "re-watch" : "re-watches"})`
                             : `${totalMovies} ${totalMovies === 1 ? "sessão" : "sessões"}`}
                     </p>
                 </div>
 
-                {/* 2. Tempo Juntos no Cinema */}
+                {/* 2. Tempo Juntos */}
                 <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
                     <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         <Clock size={13} className="text-indigo-600 dark:text-indigo-400" />
-                        Tempo no cinema
+                        Tempo juntos
                     </p>
                     <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
                         {totalMovies === 0 ? "0h" : runtimeStats.formattedTime}
@@ -155,21 +161,22 @@ export default function HistoryPage() {
                         {totalMovies === 0
                             ? "Nenhuma sessão ainda"
                             : runtimeStats.isEstimated
-                            ? "Horas juntas (~1h50/filme)"
-                            : "Duração total das sessões"}
+                            ? "Horas juntas (com estimativas)"
+                            : "Duração total de filmes e episódios"}
                     </p>
                 </div>
 
-                {/* 3. Último Filme */}
+                {/* 3. Última Obra */}
                 <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
                     <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Último filme
+                        {entries[0]?.movie.mediaType === "tv" ? "Última série" : "Último filme"}
                     </p>
                     <p className="mt-1 truncate text-2xl font-bold text-gray-900 dark:text-white">
                         {entries[0]?.movie.title ?? "-"}
                     </p>
                     {entries[0] && (
                         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                            {entries[0].review.seasonNumber ? `Temporada ${entries[0].review.seasonNumber} • ` : ""}
                             Assistido em {formatDate(entries[0].review.dateWatched)}
                         </p>
                     )}

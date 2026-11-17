@@ -101,6 +101,15 @@ export default function ProfilesPage() {
 
         return pairs.map(({ user, ratingKey }) => {
             const totalMovies = validEntries.length;
+            const moviesOnlyCount = validEntries.filter(
+                ({ review, movie }) =>
+                    (!review.mediaType || review.mediaType === "movie") &&
+                    movie.mediaType !== "tv"
+            ).length;
+            const seriesOnlyCount = validEntries.filter(
+                ({ review, movie }) =>
+                    review.mediaType === "tv" || movie.mediaType === "tv"
+            ).length;
             const avgRating =
                 totalMovies > 0
                     ? validEntries.reduce((sum, { review }) => sum + review[ratingKey], 0) / totalMovies
@@ -129,6 +138,8 @@ export default function ProfilesPage() {
             return {
                 user,
                 totalMovies,
+                moviesOnlyCount,
+                seriesOnlyCount,
                 avgRating,
                 recommended,
                 topGenres
@@ -200,6 +211,34 @@ export default function ProfilesPage() {
     // Top 5 Filmes (maiores médias combinadas)
     const topCoupleMovies = useMemo(() => {
         return [...validEntries]
+            .filter(
+                ({ movie, review }) =>
+                    (!review.mediaType || review.mediaType === "movie") &&
+                    movie.mediaType !== "tv"
+            )
+            .map(({ movie, review }) => {
+                const combinedRating = (review.ratingUser1 + review.ratingUser2) / 2;
+                return {
+                    movie,
+                    review,
+                    combinedRating
+                };
+            })
+            .sort(
+                (a, b) =>
+                    b.combinedRating - a.combinedRating ||
+                    b.review.dateWatched.localeCompare(a.review.dateWatched)
+            )
+            .slice(0, 5);
+    }, [validEntries]);
+
+    // Top 5 Séries / Temporadas (maiores médias combinadas)
+    const topCoupleSeries = useMemo(() => {
+        return [...validEntries]
+            .filter(
+                ({ movie, review }) =>
+                    review.mediaType === "tv" || movie.mediaType === "tv"
+            )
             .map(({ movie, review }) => {
                 const combinedRating = (review.ratingUser1 + review.ratingUser2) / 2;
                 return {
@@ -273,7 +312,7 @@ export default function ProfilesPage() {
 
             {/* Cards dos Perfis Individuais */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {profileCards.map(({ user, totalMovies, avgRating, recommended, topGenres }) => (
+                {profileCards.map(({ user, totalMovies, moviesOnlyCount, seriesOnlyCount, avgRating, recommended, topGenres }) => (
                     <Link
                         key={user.id}
                         href={`/perfis/${user.id}`}
@@ -307,10 +346,12 @@ export default function ProfilesPage() {
                             <div className="mt-5 grid grid-cols-3 gap-3">
                                 <div className="rounded-xl bg-gray-50/80 px-3.5 py-2.5 dark:bg-gray-800/40">
                                     <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                                        Filmes
+                                        {seriesOnlyCount > 0 ? "Filmes / Séries" : "Filmes"}
                                     </p>
                                     <p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">
-                                        {totalMovies}
+                                        {seriesOnlyCount > 0
+                                            ? `${moviesOnlyCount} / ${seriesOnlyCount}`
+                                            : totalMovies}
                                     </p>
                                 </div>
                                 <div className="rounded-xl bg-gray-50/80 px-3.5 py-2.5 dark:bg-gray-800/40">
@@ -398,7 +439,7 @@ export default function ProfilesPage() {
                         </div>
 
                         <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                            <span>Diferença média por filme</span>
+                            <span>Diferença média por sessão</span>
                             <span className="inline-flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
                                 {headToHead.avgDiff.toFixed(1)}
                                 <Star size={11} className="fill-gold-400 text-gold-400" />
@@ -522,7 +563,7 @@ export default function ProfilesPage() {
                                 </div>
                             </button>
                         ) : (
-                            <p className="mt-4 text-sm text-gray-400">Nenhum filme avaliado ainda.</p>
+                            <p className="mt-4 text-sm text-gray-400">Nenhum título avaliado ainda.</p>
                         )}
                     </section>
 
@@ -636,6 +677,76 @@ export default function ProfilesPage() {
                                         )}
                                         <span className="absolute left-2 top-2 rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
                                             #{rank}
+                                        </span>
+                                    </div>
+
+                                    <h3 className="mt-2 truncate text-xs font-semibold text-gray-900 transition-colors group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+                                        {movie.title}
+                                    </h3>
+
+                                    <div className="mt-1 flex w-full items-center justify-between gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                        <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-gray-800 dark:text-gray-200">
+                                            <Star size={11} className="fill-gold-400 text-gold-400" />
+                                            {combinedRating.toFixed(1)}
+                                        </span>
+                                        <span
+                                            className="truncate text-right text-[10.5px] text-gray-500 dark:text-gray-400"
+                                            title={`${user1.name}: ${review.ratingUser1} · ${user2.name}: ${review.ratingUser2}`}
+                                        >
+                                            {user1.name}: {review.ratingUser1} · {user2.name}: {review.ratingUser2}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
+            {/* Top Séries (Grid de Pôsteres Clicáveis) */}
+            {topCoupleSeries.length > 0 && (
+                <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-card-dark dark:ring-gray-800">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400">
+                            <Tv size={16} />
+                        </span>
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                            Top Séries
+                        </h2>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+                        {topCoupleSeries.map(({ movie, review, combinedRating }, index) => {
+                            const rank = index + 1;
+                            const seasonTag = review.seasonNumber
+                                ? `S${String(review.seasonNumber).padStart(2, "0")}`
+                                : review.seasonName || "Série";
+                            return (
+                                <button
+                                    key={`${movie.id}-${review.id}`}
+                                    type="button"
+                                    onClick={() => setSelectedReviewId(review.id)}
+                                    className="group flex flex-col text-left focus:outline-none"
+                                >
+                                    <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-gray-100 shadow-sm ring-1 ring-gray-200 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md group-hover:ring-indigo-300 dark:bg-gray-800 dark:ring-gray-700 dark:group-hover:ring-indigo-500/50">
+                                        {movie.poster_path ? (
+                                            <Image
+                                                src={getPosterUrl(movie.poster_path, "w342")}
+                                                alt={movie.title}
+                                                fill
+                                                sizes="(max-width: 768px) 45vw, 18vw"
+                                                className="object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-full items-center justify-center p-2 text-center text-[10px] text-gray-400">
+                                                {movie.title}
+                                            </div>
+                                        )}
+                                        <span className="absolute left-2 top-2 rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
+                                            #{rank}
+                                        </span>
+                                        <span className="absolute right-2 top-2 rounded-md bg-indigo-600/90 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                                            {seasonTag}
                                         </span>
                                     </div>
 

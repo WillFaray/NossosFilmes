@@ -1,6 +1,6 @@
-# 🎬 Nossos Filmes
+# ✨ NossosMomentos
 
-Diário de filmes compartilhado para **duas pessoas**, com busca integrada ao TMDB, métricas de afinidade do casal, lista de interesse com roleta e banco de dados SQLite local.
+Diário compartilhado de **filmes e séries** para **duas pessoas**, com busca integrada ao TMDB, acompanhamento de maratonas em andamento com check-ins rápidos, registro retroativo de temporadas por calendário interativo, métricas de afinidade do casal, lista de interesse com roleta e banco de dados SQLite local.
 
 ---
 
@@ -12,31 +12,38 @@ Diário de filmes compartilhado para **duas pessoas**, com busca integrada ao TM
 
 ## ⚡ Funcionalidades
 
-- **📖 Diário & Histórico**:
-  - 3 modos de visualização: **Diário** (lista), **Filmes** (grade) e **Calendário**.
-  - Busca textual por título, filtros por quem indicou, gênero, nota média e período.
-  - Indicador de **Re-watch** (múltiplas sessões do mesmo filme) e somatório de **Horas assistidas juntas**.
+- **📺 Séries de TV & Maratonas (Híbrido)**:
+  - **Assistindo no Momento**: Bloco na home para acompanhar séries em andamento.
+  - **Check-in Rápido de Sofá**: Botões de 1 toque (`+1`, `+2`, `+3`, `Até o fim`) que geram badges visuais no Calendário (`S01 • Eps 3-4`).
+  - **Registro Retroativo de Temporadas**: Seletor interativo de datas com atalho "Intervalo Início → Fim" para preencher facilmente maratonas passadas.
+  - **Fluxo de Conclusão e Abandono**: Avaliação conjunta ao finalizar ou chips de motivo ao abandonar.
 
-- **✍️ Adicionar Sessão**:
-  - Busca em tempo real via **TMDB API** (título, pôster, sinopse, gênero e duração).
-  - Seletor de plataforma (*Cinema, Netflix, Prime Video, Disney+, etc.*).
-  - Alerta de re-watch quando o filme já foi assistido anteriormente.
-  - Pré-preenchimento automático via URL (`/adicionar?tmdbId=...`).
+- **📖 Diário & Histórico Unificado**:
+  - Filtro rápido de tipo: **Todos | Filmes | Séries**.
+  - 3 modos de visualização: **Diário** (lista), **Obras** (grade) e **Calendário** (com sessões e episódios).
+  - Busca textual por título, filtros por quem indicou, gênero, plataforma, nota mínima e período.
+  - Indicador de **Re-watch** e cálculo unificado de **Tempo juntos** (duração de filmes + episódios × duração).
+
+- **✍️ Adicionar Sessão ou Série**:
+  - Busca unificada e categorizada via **TMDB API** (Filmes e Séries).
+  - Três modos para séries: Concluída, Em Andamento ou Abandonada.
+  - Seletor de plataforma (*Cinema, Netflix, Prime Video, Disney+, Max, etc.*).
+  - Alerta de re-watch automático.
 
 - **🎲 Lista de Interesse & Roleta**:
-  - Watchlist com busca interna por título e filtro por gênero.
-  - **Roleta de filmes** com filtro opcional por gênero e botão direto *"Registrar sessão"*.
+  - Watchlist unificada com busca por título e filtros por gênero e tipo (*Todos | Filmes | Séries*).
+  - **Roleta da Sorte**: Sorteia filmes ou séries da lista com filtros de duração e gênero, além de auto-remoção opcional após registrar.
 
 - **👥 Perfis & Sintonia da Dupla**:
-  - Estatísticas individuais (média, favoritos $\ge$ 4★, decepções $\le$ 2.5★, taxa de acerto de quem indicou).
+  - Estatísticas individuais (média, favoritos $\ge$ 4★, decepções $\le$ 2.5★, taxa de acerto de indicações).
   - **Métrica de Afinidade**: % de sintonia nas avaliações.
   - **Quem é o mais crítico?**: comparação direta da média de notas.
+  - **Top Filmes** e **Top Séries** da dupla.
   - **Maior Concordância** e **Maior Discordância** (*Discussão de casal*).
-  - **Gêneros Favoritos** por pessoa com ranking e barras de progresso.
 
 - **⚙️ Configurações & Gestão de Dados**:
   - Exportação em **JSON** e backup físico do **SQLite (.db)**.
-  - Importação com opção de **Mesclar (Merge)** ou **Substituir (Replace)**.
+  - Importação com opção de **Mesclar (Merge)** ou **Substituir (Replace)** (compatível com backups do NossosMomentos e NossosFilmes).
   - Edição dos perfis diretamente pelo painel e reset seguro de fábrica.
 
 ---

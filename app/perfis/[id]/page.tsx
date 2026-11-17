@@ -67,6 +67,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     // Calcula as estatísticas do perfil memoizadas
     const {
         ratedEntries,
+        moviesOnlyCount,
+        seriesOnlyCount,
         avgRating,
         topFavorites,
         allFavorites,
@@ -234,6 +236,15 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
         return {
             ratedEntries: rated,
+            moviesOnlyCount: rated.filter(
+                ({ review, movie }) =>
+                    (!review.mediaType || review.mediaType === "movie") &&
+                    movie.mediaType !== "tv"
+            ).length,
+            seriesOnlyCount: rated.filter(
+                ({ review, movie }) =>
+                    review.mediaType === "tv" || movie.mediaType === "tv"
+            ).length,
             avgRating: avg,
             topFavorites: topFavs,
             allFavorites: allFavs,
@@ -374,10 +385,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     <div className="grid grid-cols-3 gap-3 sm:min-w-[380px]">
                         <div className="rounded-xl bg-gray-50/80 px-4 py-3 dark:bg-gray-800/40">
                             <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                                Filmes
+                                {seriesOnlyCount > 0 ? "Filmes / Séries" : "Filmes"}
                             </p>
                             <p className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">
-                                {ratedEntries.length}
+                                {seriesOnlyCount > 0
+                                    ? `${moviesOnlyCount} / ${seriesOnlyCount}`
+                                    : ratedEntries.length}
                             </p>
                         </div>
 
@@ -393,7 +406,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
                         <div
                             className="rounded-xl bg-gray-50/80 px-4 py-3 dark:bg-gray-800/40"
-                            title={`Média que ${otherUser.name} deu para os ${recommendedReviews.length} filmes indicados por ${user.name}`}
+                            title={`Média que ${otherUser.name} deu para as ${recommendedReviews.length} obras indicadas por ${user.name}`}
                         >
                             <p className="truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">
                                 Taxa de Acerto

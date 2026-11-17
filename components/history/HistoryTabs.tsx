@@ -6,6 +6,7 @@ import {
     ArrowUpAZ,
     CalendarDays,
     Clock,
+    Film,
     FilterX,
     LayoutGrid,
     List,
@@ -17,6 +18,7 @@ import {
     X
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { getEntryDurationMinutes, formatDuration } from "@/lib/runtime";
 import { DropdownSelect } from "@/components/ui/DropdownSelect";
 import { HistoryListView } from "./HistoryListView";
 import { HistoryGridView } from "./HistoryGridView";
@@ -27,6 +29,8 @@ export type HistoryView = "list" | "grid" | "calendar";
 
 export type SortOption = "date-desc" | "date-asc" | "rating-desc" | "rating-asc";
 
+export type HistoryMediaFilter = "all" | "movie" | "tv";
+
 interface HistoryTabsProps {
     entries: HistoryEntry[];
     user1: User;
@@ -35,7 +39,7 @@ interface HistoryTabsProps {
 
 const tabs: { id: HistoryView; label: string; icon: typeof List }[] = [
     { id: "list", label: "Diário", icon: List },
-    { id: "grid", label: "Filmes", icon: LayoutGrid },
+    { id: "grid", label: "Galeria", icon: LayoutGrid },
     { id: "calendar", label: "Calendário", icon: CalendarDays }
 ];
 
@@ -48,6 +52,7 @@ const sortOptions: { id: SortOption; label: string; icon: typeof Star }[] = [
 
 export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     const [activeView, setActiveView] = useState<HistoryView>("list");
+    const [mediaFilter, setMediaFilter] = useState<HistoryMediaFilter>("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<SortOption>("date-desc");
     const [yearFilter, setYearFilter] = useState<string>("all");
@@ -104,6 +109,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     }, [availablePlatforms]);
 
     const hasActiveFilters =
+        mediaFilter !== "all" ||
         Boolean(searchQuery.trim()) ||
         yearFilter !== "all" ||
         recommenderFilter !== "all" ||
@@ -115,6 +121,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         Boolean(dateTo);
 
     const clearFilters = () => {
+        setMediaFilter("all");
         setSearchQuery("");
         setYearFilter("all");
         setRecommenderFilter("all");
@@ -129,6 +136,19 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     // Aplica filtro e ordenação nas visões Diário e Grid
     const filteredSortedEntries = useMemo(() => {
         let result = [...entries];
+
+        if (mediaFilter === "movie") {
+            result = result.filter(
+                (e) =>
+                    (!e.review.mediaType || e.review.mediaType === "movie") &&
+                    e.movie.mediaType !== "tv"
+            );
+        } else if (mediaFilter === "tv") {
+            result = result.filter(
+                (e) =>
+                    e.review.mediaType === "tv" || e.movie.mediaType === "tv"
+            );
+        }
 
         if (searchQuery.trim()) {
             const query = searchQuery.trim().toLowerCase();
@@ -197,6 +217,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         return result;
     }, [
         entries,
+        mediaFilter,
         searchQuery,
         sortBy,
         yearFilter,
@@ -212,7 +233,13 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
     // Retrospectiva do ano selecionado
     const yearSummary = useMemo(() => {
         if (yearFilter === "all") return null;
-        const yearEntries = entries.filter((e) => e.review.dateWatched.startsWith(yearFilter));
+        const yearEntries = entries.filter((e) => {
+            if (!e.review.dateWatched.startsWith(yearFilter)) return false;
+            const isTv = e.review.mediaType === "tv" || e.movie.mediaType === "tv";
+            if (mediaFilter === "movie" && isTv) return false;
+            if (mediaFilter === "tv" && !isTv) return false;
+            return true;
+        });
         if (yearEntries.length === 0) return null;
 
         let totalMinutes = 0;
@@ -221,8 +248,8 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
         let bestAvg = (bestEntry.review.ratingUser1 + bestEntry.review.ratingUser2) / 2;
 
         for (const e of yearEntries) {
-            const r = e.review.runtime ?? e.movie.runtime ?? 110;
-            totalMinutes += r > 0 ? r : 110;
+            const { minutes } = getEntryDurationMinutes(e);
+            totalMinutes += minutes;
             const avg = (e.review.ratingUser1 + e.review.ratingUser2) / 2;
             ratingSum += avg;
             if (avg > bestAvg) {
@@ -231,20 +258,15 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
             }
         }
 
-        const hours = Math.floor(totalMinutes / 60);
-        const mins = totalMinutes % 60;
-        const formattedTime =
-            hours === 0 ? `${mins}m` : mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
-
         return {
             year: yearFilter,
             count: yearEntries.length,
-            formattedTime,
+            formattedTime: formatDuration(totalMinutes),
             avgRating: ratingSum / yearEntries.length,
             bestMovie: bestEntry.movie.title,
             bestRating: bestAvg
         };
-    }, [entries, yearFilter]);
+    }, [entries, yearFilter, mediaFilter]);
 
     // Visão calendário sempre usa entradas completas ordenadas
     const calendarEntries = useMemo(
@@ -256,28 +278,61 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
 
     return (
         <div>
-            {/* Tabs + Filtro rápido de Ano */}
+            {/* Tabs + Filtro rápido de Tipo (Todos | Filmes | Séries) + Ano */}
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800/50">
-                    {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeView === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveView(tab.id)}
-                                className={cn(
-                                    "relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
-                                    isActive
-                                        ? "bg-white text-gray-900 shadow-sm dark:bg-card-dark dark:text-white"
-                                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                )}
-                            >
-                                <Icon size={16} />
-                                {tab.label}
-                            </button>
-                        );
-                    })}
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800/50">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeView === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setActiveView(tab.id)}
+                                    className={cn(
+                                        "relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                                        isActive
+                                            ? "bg-white text-gray-900 shadow-sm dark:bg-card-dark dark:text-white"
+                                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    )}
+                                >
+                                    <Icon size={16} />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Filtro Rápido: Todos | Filmes | Séries */}
+                    <div className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800/50">
+                        {(
+                            [
+                                { id: "all", label: "Todos", icon: null },
+                                { id: "movie", label: "Filmes", icon: Film },
+                                { id: "tv", label: "Séries", icon: Tv }
+                            ] as const
+                        ).map((opt) => {
+                            const Icon = opt.icon;
+                            const active = mediaFilter === opt.id;
+                            return (
+                                <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => setMediaFilter(opt.id)}
+                                    className={cn(
+                                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                                        active
+                                            ? "bg-indigo-600 text-white shadow-sm"
+                                            : "text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                                    )}
+                                >
+                                    {Icon && <Icon size={13} />}
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {showToolbar && availableYears.length > 0 && (
@@ -332,7 +387,7 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                             Sessões em {yearSummary.year}
                         </p>
                         <p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">
-                            {yearSummary.count} {yearSummary.count === 1 ? "filme" : "filmes"}
+                            {yearSummary.count} {yearSummary.count === 1 ? "sessão" : "sessões"}
                         </p>
                     </div>
                     <div>
@@ -382,7 +437,13 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Buscar filme por título no histórico..."
+                                placeholder={
+                                    mediaFilter === "movie"
+                                        ? "Buscar filme por título..."
+                                        : mediaFilter === "tv"
+                                        ? "Buscar série por título..."
+                                        : "Buscar filme ou série por título no histórico..."
+                                }
                                 className="w-full rounded-lg border-0 bg-white py-1.5 pl-9 pr-8 text-xs font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-700 dark:placeholder:text-gray-500 dark:focus:ring-indigo-500"
                             />
                             {searchQuery && (
@@ -600,8 +661,12 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                             <FilterX size={40} className="text-gray-300 dark:text-gray-600" />
                             <p className="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 {hasActiveFilters
-                                    ? "Nenhum filme encontrado com os filtros selecionados."
-                                    : "Nenhum filme registrado ainda no diário."}
+                                    ? mediaFilter === "movie"
+                                        ? "Nenhum filme encontrado com os filtros selecionados."
+                                        : mediaFilter === "tv"
+                                        ? "Nenhuma série encontrada com os filtros selecionados."
+                                        : "Nenhum título encontrado com os filtros selecionados."
+                                    : "Nenhum título registrado ainda no diário."}
                             </p>
                             {hasActiveFilters && (
                                 <button
@@ -623,8 +688,12 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                             <FilterX size={40} className="text-gray-300 dark:text-gray-600" />
                             <p className="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 {hasActiveFilters
-                                    ? "Nenhum filme encontrado com os filtros selecionados."
-                                    : "Nenhum filme registrado ainda no diário."}
+                                    ? mediaFilter === "movie"
+                                        ? "Nenhum filme encontrado com os filtros selecionados."
+                                        : mediaFilter === "tv"
+                                        ? "Nenhuma série encontrada com os filtros selecionados."
+                                        : "Nenhum título encontrado com os filtros selecionados."
+                                    : "Nenhum título registrado ainda no diário."}
                             </p>
                             {hasActiveFilters && (
                                 <button
@@ -639,7 +708,12 @@ export function HistoryTabs({ entries, user1, user2 }: HistoryTabsProps) {
                         </div>
                     ))}
                 {activeView === "calendar" && (
-                    <HistoryCalendarView entries={calendarEntries} user1={user1} user2={user2} />
+                    <HistoryCalendarView
+                        entries={calendarEntries}
+                        user1={user1}
+                        user2={user2}
+                        mediaFilter={mediaFilter}
+                    />
                 )}
             </div>
         </div>

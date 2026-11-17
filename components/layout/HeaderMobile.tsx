@@ -17,7 +17,7 @@ export function HeaderMobile({ onOpenSidebar }: HeaderMobileProps) {
                 <Menu size={20} />
             </button>
             <span className="text-base font-bold tracking-tight text-gray-900 dark:text-white">
-                Nossos<span className="text-gold-gradient">Filmes</span>
+                Nossos<span className="text-gold-gradient">Momentos</span>
             </span>
         </header>
     );

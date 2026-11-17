@@ -88,7 +88,7 @@ export default function SettingsPage() {
             const dateStamp = new Date().toISOString().slice(0, 10);
             downloadBlob(
                 JSON.stringify(data, null, 2),
-                `nossosfilmes-export-${dateStamp}.json`,
+                `nossosmomentos-export-${dateStamp}.json`,
                 "application/json"
             );
             setMessage({ kind: "success", text: "Dados exportados com sucesso em formato JSON." });
@@ -108,7 +108,7 @@ export default function SettingsPage() {
             const dateStamp = new Date().toISOString().slice(0, 10);
             downloadBlob(
                 base64ToBlob(base64, "application/x-sqlite3"),
-                `nossosfilmes-backup-${dateStamp}.db`,
+                `nossosmomentos-backup-${dateStamp}.db`,
                 "application/x-sqlite3"
             );
             setMessage({ kind: "success", text: "Backup físico do banco SQLite (.db) gerado com sucesso." });
@@ -141,7 +141,7 @@ export default function SettingsPage() {
             console.error("Arquivo de importação inválido:", error);
             setMessage({
                 kind: "error",
-                text: "Arquivo inválido. Selecione um JSON exportado pelo NossosFilmes."
+                text: "Arquivo inválido. Selecione um JSON exportado pelo NossosMomentos ou NossosFilmes."
             });
         }
     };
@@ -156,7 +156,7 @@ export default function SettingsPage() {
             setPendingImport(null);
             setMessage({
                 kind: "success",
-                text: `Substituição concluída: ${result.users} usuários, ${result.reviews} registros e ${result.watchlist} filmes na lista restaurados com sucesso.`
+                text: `Substituição concluída: ${result.users} usuários, ${result.reviews} registros e ${result.watchlist} itens na lista restaurados com sucesso.`
             });
             router.refresh();
         } catch (error) {
@@ -180,7 +180,7 @@ export default function SettingsPage() {
             setPendingImport(null);
             setMessage({
                 kind: "success",
-                text: `Mesclagem concluída: ${result.addedReviews} novas sessões e ${result.addedWatchlist} novos filmes adicionados à lista sem remover os atuais.`
+                text: `Mesclagem concluída: ${result.addedReviews} novas sessões e ${result.addedWatchlist} novos itens adicionados à lista sem remover os atuais.`
             });
             router.refresh();
         } catch (error) {
@@ -543,7 +543,7 @@ export default function SettingsPage() {
                     </div>
 
                     <p className="mt-4 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                        Todos os perfis cadastrados, histórico de filmes, notas, resenhas e filmes na lista de interesse serão permanentemente excluídos. O app voltará à tela inicial de Onboarding.
+                        Todos os perfis cadastrados, histórico de filmes e séries, notas, resenhas e lista de interesse serão permanentemente excluídos. O app voltará à tela inicial de Onboarding.
                     </p>
 
                     <div className="mt-4 space-y-2">
